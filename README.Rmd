@@ -1,0 +1,12 @@
+---
+title: "Bios 735 Group Project: Group 4"
+author: "Ben Bodek, Brian Chen, Forrest Hurley, Brian Richardson, Emmanuel Rockwell"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Description
+Group Project for Bios 735 (statistical computing).

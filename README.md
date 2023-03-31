@@ -1,2 +1,8 @@
-# bios-735-project
-Group project for bios 735, Spring 2023, group 4
+Bios 735 Group Project: Group 4
+================
+Ben Bodek, Brian Chen, Forrest Hurley, Brian Richardson, Emmanuel
+Rockwell
+
+## Description
+
+Group Project for Bios 735 (statistical computing).
