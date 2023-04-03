@@ -4,7 +4,7 @@
 #'
 #' @param y: outcome vector; an ordered factor vector of length n with J levels
 #' @param x: covariate matrix; n x p matrix with numeric elements
-#' @param zeta: used to generate category specific intercepts alpha = sum(exp(zeta); numeric vector of length J-1
+#' @param zeta: used to generate category specific intercepts alpha = sum(exp(zeta)); numeric vector of length J-1
 #' @param beta: slope parameters; numeric vector of length p
 #'
 #' @return the log-likelihood value
@@ -35,10 +35,11 @@ loglik <- function(y, x, zeta, beta) {
   for (i in 1:length(Y)) {
     probs[i] <- ifelse(Y[i] == J, 1,
                        inv.logit(alpha[Y[i]] + eta[i])) -
-      ifelse(Y[i] == 1, 0,
-             inv.logit(alpha[Y[i] - 1] + eta[i]))
+                ifelse(Y[i] == 1, 0,
+                       inv.logit(alpha[Y[i] - 1] + eta[i]))
   }
 
   # compute log-likelihood: sum of log(p)
   return(sum(log(probs)))
 }
+

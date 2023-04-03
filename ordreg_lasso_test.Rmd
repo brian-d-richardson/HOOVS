@@ -12,6 +12,7 @@ library(MASS)
 library(foreign)
 library(ggplot2)
 library(devtools)
+library(kableExtra)
 load_all()
 
 set.seed(1)
@@ -96,44 +97,30 @@ ord.mod.lambda0
 # test our ordinal regression function with a LASSO penalty
 ord.mod.lambda1 <- ordreg.lasso(formula = y ~ .,
                                 data = dat,
-                                lambda = 1)
+                                lambda = 0.05)
 ord.mod.lambda1
 
 ```
 
 We can now compare the parameter estimates between the 3 methods for fitting the model.
 
-```{r fig.width = 10, fig.height = 6}
+```{r}
 
-param.est <- data.frame("Method" = rep(c("MASS:polr()",
-                                         "ordreg.lasso() with Lambda = 0",
-                                         "ordreg.lasso() with Lambda = 1"),
-                                       each = p + J - 1),
-                        "Parameter" = rep(c(paste0("alpha", 1:(J-1)),
-                                            paste0("beta", 1:p)),
-                                          times = 3),
-                        "Truth" = rep(c(alpha0, beta0), times = 3),
-                        "Estimate" = c(ord.mod.polr$zeta, -1 * ord.mod.polr$coefficients,
-                                       ord.mod.lambda0$alpha, ord.mod.lambda0$beta,
-                                       ord.mod.lambda1$alpha, ord.mod.lambda1$beta))
+data.frame("Parameter" = c(paste0("alpha", 1:(J-1)),
+                           paste0("beta", 1:p)),
+           "Truth" = c(alpha0, beta0),
+           "polr" = round(c(ord.mod.polr$zeta, -1 * ord.mod.polr$coefficients), 3),
+           "ordreg.lasso.0" = round(c(ord.mod.lambda0$alpha, ord.mod.lambda0$beta), 3),
+           "ordreg.lasso.1" = round(c(ord.mod.lambda1$alpha, ord.mod.lambda1$beta), 3)) %>%
+  kable(col.names = c("Paremeter", "Truth", "MASS:polr()",
+                      "ordreg.lasso (lambda = 0)",
+                      "ordreg.lasso (lambda = 0.05)"),
+        caption = "Ordinal Regression Model Estimates by Method") %>% 
+  kable_classic(full_width = F)
+  
 
-ggplot(param.est,
-       aes(x = Method,
-           y = Estimate,
-           color = Method,
-           shape = Method)) +
-  geom_point(size = 2) +
-  geom_hline(aes(yintercept = Truth),
-             linetype = "dashed") +
-  facet_wrap(~ Parameter) +
-  labs(x = "") +
-  ggtitle("Parameter Estimates for Different Model Fitting Methods") +
-  theme_bw() +
-  theme(axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
 
 ```
-
 
 
 

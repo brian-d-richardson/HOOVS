@@ -32,7 +32,7 @@ ordreg.lasso <- function(formula, data, lambda = 0) {
                    fn = function(theta) {
                      beta <- theta[-(1:J_1)]
                      zeta <- theta[1:J_1]
-                     -1 * (
+                     -(1 / length(y)) * (
                        # log-likelihood
                        loglik(zeta = zeta,
                               beta = beta,
@@ -41,7 +41,8 @@ ordreg.lasso <- function(formula, data, lambda = 0) {
                        # LASSO penalty
                        lambda * sum(abs(beta))
                    },
-                   method = "Nelder-Mead")
+                   method = "BFGS")
+                   #method = "Nelder-Mead")
 
   # estimated alpha and beta
   alpha <- cumsum(exp(opt.res$par[1:J_1]))
@@ -51,7 +52,7 @@ ordreg.lasso <- function(formula, data, lambda = 0) {
   lasso.penalty <- lambda * sum(abs(beta))
 
   # log-likelihood value at convergence (not including LASSO penalty)
-  ll <- -1 * opt.res$value + lasso.penalty
+  ll <- -1 * length(y) * opt.res$value + lasso.penalty
 
   return(list("alpha" = alpha,
               "beta" = beta,
