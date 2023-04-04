@@ -25,6 +25,7 @@ We begin by simulating a data set.
 
 ```{r}
 
+
 # sample size
 n <- 1000
 
@@ -43,6 +44,9 @@ X <- matrix(nrow = n,
 alpha0 <- seq(.5, 1.5, length = J - 1) # category-specific intercepts
 beta0 <- c(rep(1, 4), # slopes
            rep(0, p - 4)) 
+
+dat <- sim.data(formula = y ~ ., n = 1000, alpha = alpha0, beta = beta0)
+
 
 # linear predictors
 eta0 <- X %*% beta0

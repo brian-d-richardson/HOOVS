@@ -18,6 +18,7 @@ a list with the following elements:
 \itemize{
 \item{alpha: the estimated category specific intercepts for the lowest J-1 outcome categories; a numeric vector of length J-1}
 \item{beta: the estimated slopes; a numeric vector of length p}
+\item{vcov: asymptotic covariance matrix of unpenalized parameter estimates (NOTE: if lambda > 0, then this will overestimate the variance of the penalized estimates)}
 \item{loglik: the log-likelihood value at convergence (not including the LASSO penalty)}
 \item{lasso.penalty: the penalty term evaluated at the estimates for alpha and beta}
 }

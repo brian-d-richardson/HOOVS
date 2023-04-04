@@ -7,11 +7,11 @@
 loglik(y, x, zeta, beta)
 }
 \arguments{
-\item{y:}{outcome vector; an ordered factor vector of length n with J levels}
+\item{y:}{outcome vector; a numeric vector of length n with values in 1, ..., J corresponding to the J ordinal outcome categories}
 
 \item{x:}{covariate matrix; n x p matrix with numeric elements}
 
-\item{zeta:}{used to generate category specific intercepts alpha = sum(exp(zeta); numeric vector of length J-1}
+\item{zeta:}{used to generate category specific intercepts alpha = sum(exp(zeta)); numeric vector of length J-1}
 
 \item{beta:}{slope parameters; numeric vector of length p}
 }
