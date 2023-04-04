@@ -8,5 +8,5 @@
 #'
 #' @export
 get.alpha <- function(zeta) {
-  cumsum(exp(zeta))
+  cumsum(c(zeta[1], exp(zeta[-1])))
 }

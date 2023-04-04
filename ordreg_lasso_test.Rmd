@@ -8,6 +8,7 @@ output: html_document
 
 rm(list = ls())
 
+library(dplyr)
 library(MASS)
 library(foreign)
 library(ggplot2)
@@ -19,12 +20,25 @@ set.seed(1)
 
 ```
 
-The goal of this program is to compare our ordinal regression function code with an existing function, and to verify that the lasso component of our function works as expected.
+### Ordinal Regression Model:
 
-We begin by simulating a data set.
+Suppose that, for observation $i = 1, \dots, n$, the ordinal outcome $Y_i$ given the covariate vector $\pmb{x}_i$ has a multinomial distribution with $J$ outcome categories and probabilities of success $\pi_1(\pmb{x}_i), \dots, \pi_J(\pmb{x}_i)$. That is,
+
+$$Y_i | \pmb{x}_i \sim \text{multinomial} \{ 1; \pi_1(\pmb{x}_i), \dots, \pi_J(\pmb{x}_i) \}.$$
+
+The cumulative probability for subject $i$ and ordinal outcome category $j$ is $P(Y_i \leq j | \pmb{x}_i) = \sum_{k=1}^j \pi_k(\pmb{x}_i)$. Note that by definition $P(Y_i \leq J | \pmb{x}_i) = 1$.
+
+The following proportional odds model relates the cumulative probability for subject $i$ and ordinal outcome category $j$ to the covariates $\pmb{x}_i$ via the parameters $\pmb{\alpha} = (\alpha_1, \dots, \alpha_{J-1})^T$ and $\pmb{\beta} = (\beta_1, \dots, \beta_p)^T$ with a logit link function.
+
+$$ \text{logit}\{ P(Y_i \leq j | \pmb{x}_i) \} = \alpha_j + \pmb{x}_i^T \pmb{\beta}. $$
+
+In this model, $\alpha_1, \dots, \alpha_{J-1}$ are outcome category-specific intercepts for the first $J-1$ ordinal outcome categories and $\beta_1, \dots, \beta_p$ are the slopes corresponding to the $p$ covariates. Since the cumulative probabilities must be nondecreasing in $j$, i.e., is $P(Y_i \leq j | \pmb{x}_i) <= P(Y_i \leq j+1 | \pmb{x}_i)$, we require that $\alpha_1 \leq \dots \leq \alpha_{J-1}$.
+
+### Data Generation
+
+We begin by simulating a data set using the `sim.data()` function. For $n$ subjects, we generate $p$ covariates from independent standard normal distributions. Given true parameters $\pmb{\alpha}_0$ and $\pmb{\beta}_0$, we compute the multinomial probabilities for the outcome for each individual and simulate $y_i$ accordingly.
 
 ```{r}
-
 
 # sample size
 n <- 1000
@@ -45,50 +59,42 @@ alpha0 <- seq(.5, 1.5, length = J - 1) # category-specific intercepts
 beta0 <- c(rep(1, 4), # slopes
            rep(0, p - 4)) 
 
-dat <- sim.data(formula = y ~ ., n = 1000, alpha = alpha0, beta = beta0)
-
-
-# linear predictors
-eta0 <- X %*% beta0
-
-# compute the cumulative probabilities for each of J categories and n subjects
-cum.probs <- matrix(nrow = n,
-                    ncol = J)
-for (j in 1:(J-1)) {
-  cum.probs[, j] <- inv.logit(alpha0[j] + eta0)
-}
-cum.probs[, J] <- 1
-
-# compute the probabilities for each of J categories and n subjects
-probs <- cum.probs - cbind(0, cum.probs[, -J])
-
-# simulate outcomes
-y <- numeric(n)
-for (i in 1:n) {
-  y[i] <- sample(x = 1:J,
-                 size = 1,
-                 prob = probs[i,])
-}
-
-# combine into one data set
-dat <- data.frame(cbind(y, X))
-colnames(dat) <- c("y", paste0("X", 1:p))
-dat$y <- factor(dat$y, levels = 1:J, ordered = T)
+# simulate data according to the above parameters
+dat <- sim.data(formula = y ~ .,
+                n = 1000,
+                alpha = alpha0,
+                beta = beta0)
 
 ```
 
-We then use an existing function `MASS::polr()` to run an ordinal logistic regression model on the simulated data set.
+For this example, we simulated data with $n$ = `r n` observations, $p$ = `r p` covariates, $J$ = `r J` ordinal outcome categories, and true parameter values of $\pmb{\alpha}_0$ = (`r alpha0`) and $\pmb{\beta}_0$ = (`r beta0`). Note that this implies the first 4 covariates are truly associated with the outcome and the last 6 are not. The first 10 rows of the data set are shown below.
 
 ```{r}
 
-# example of ordinal regression using existing function MASS::polr
-ord.mod.polr <- polr(polr(y ~ ., data = dat))
-summary(ord.mod.polr)
-logLik(ord.mod.polr)
+dat[1:10, ] %>% 
+  mutate_if(.predicate = function(x) is.numeric(x),
+            .funs = function(x) round(x, digits = 2))
 
 ```
 
-We can now test our own version of an ordinal regression function.
+### Estimation
+
+The likelihood function for the ordinal regression model is
+
+$$ l(\pmb{\alpha}, \pmb{\beta}) = \prod_{i=1}^n \prod_{j=1}^J \left\{ \text{logit}^{-1}(\alpha_j + \pmb{x}_i^T\pmb{\beta}) - \text{logit}^{-1}(\alpha_{j-1} + \pmb{x}_i^T\pmb{\beta} )   \right\} ^ {_(y_i = j)}. $$
+
+The log-likelihood can be maximized numerically using the BFGS method in `optim`. To ensure that the MLEs for $\pmb{\alpha}$ satisfy the constraint $\alpha_1 \leq \dots \leq \alpha_{J-1}$, we can reparametrize the model with $\pmb{\zeta} = (\zeta_1, \dots, \zeta_{J-1})^T$, where $\zeta_1 = \alpha_1$ and $\zeta_j = \log(\alpha_j - \alpha_{j-1})$ for $j = 2, \dots, J-1$.
+
+The asymptotic covariance matrix of the parameter estimates can be obtained by inverting the negative hessian of the log-likelihood function evaluated at the MLEs.
+
+### LASSO Penalization
+
+To avoid overfitting and encourage parsimony in our model, we can fit this ordinal regression model with a LASSO penalty. This involves maximizing an objective function that is the sum of the log-likelihood and an $L^1$ penalty term.
+
+$$ f(\pmb{\alpha}, \pmb{\beta}) = \frac{1}{n} l(\pmb{\alpha}, \pmb{\beta}) - \lambda\sum_{k = 1}^p |\beta_k| $$
+### Implementation
+
+We can now test our own version of an ordinal regression function on the simulated data set with and without a LASSO penalty.
 
 ```{r}
 
@@ -103,6 +109,17 @@ ord.mod.lambda1 <- ordreg.lasso(formula = y ~ .,
                                 data = dat,
                                 lambda = 0.05)
 ord.mod.lambda1
+
+```
+
+We then use an existing function `MASS::polr()` to run an ordinal logistic regression model on the simulated data set.
+
+```{r}
+
+# example of ordinal regression using existing function MASS::polr
+ord.mod.polr <- polr(polr(y ~ ., data = dat))
+summary(ord.mod.polr)
+logLik(ord.mod.polr)
 
 ```
 

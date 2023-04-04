@@ -579,10 +579,44 @@ display: none;
 </div>
 
 
-<p>The goal of this program is to compare our ordinal regression
-function code with an existing function, and to verify that the lasso
-component of our function works as expected.</p>
-<p>We begin by simulating a data set.</p>
+<div id="ordinal-regression-model" class="section level3">
+<h3>Ordinal Regression Model:</h3>
+<p>Suppose that, for observation <span class="math inline">\(i = 1,
+\dots, n\)</span>, the ordinal outcome <span class="math inline">\(Y_i\)</span> given the covariate vector <span class="math inline">\(\pmb{x}_i\)</span> has a multinomial distribution
+with <span class="math inline">\(J\)</span> outcome categories and
+probabilities of success <span class="math inline">\(\pi_1(\pmb{x}_i),
+\dots, \pi_J(\pmb{x}_i)\)</span>. That is,</p>
+<p><span class="math display">\[Y_i | \pmb{x}_i \sim \text{multinomial}
+\{ 1; \pi_1(\pmb{x}_i), \dots, \pi_J(\pmb{x}_i) \}.\]</span></p>
+<p>The cumulative probability for subject <span class="math inline">\(i\)</span> and ordinal outcome category <span class="math inline">\(j\)</span> is <span class="math inline">\(P(Y_i
+\leq j | \pmb{x}_i) = \sum_{k=1}^j \pi_k(\pmb{x}_i)\)</span>. Note that
+by definition <span class="math inline">\(P(Y_i \leq J | \pmb{x}_i) =
+1\)</span>.</p>
+<p>The following proportional odds model relates the cumulative
+probability for subject <span class="math inline">\(i\)</span> and
+ordinal outcome category <span class="math inline">\(j\)</span> to the
+covariates <span class="math inline">\(\pmb{x}_i\)</span> via the
+parameters <span class="math inline">\(\pmb{\alpha} = (\alpha_1, \dots,
+\alpha_{J-1})^T\)</span> and <span class="math inline">\(\pmb{\beta} =
+(\beta_1, \dots, \beta_p)^T\)</span> with a logit link function.</p>
+<p><span class="math display">\[ \text{logit}\{ P(Y_i \leq j |
+\pmb{x}_i) \} = \alpha_j + \pmb{x}_i^T \pmb{\beta}. \]</span></p>
+<p>In this model, <span class="math inline">\(\alpha_1, \dots,
+\alpha_{J-1}\)</span> are outcome category-specific intercepts for the
+first <span class="math inline">\(J-1\)</span> ordinal outcome
+categories and <span class="math inline">\(\beta_1, \dots,
+\beta_p\)</span> are the slopes corresponding to the <span class="math inline">\(p\)</span> covariates. Since the cumulative
+probabilities must be nondecreasing in <span class="math inline">\(j\)</span>, i.e., is <span class="math inline">\(P(Y_i \leq j | \pmb{x}_i) &lt;= P(Y_i \leq j+1 |
+\pmb{x}_i)\)</span>, we require that <span class="math inline">\(\alpha_1 \leq \dots \leq
+\alpha_{J-1}\)</span>.</p>
+</div>
+<div id="data-generation" class="section level3">
+<h3>Data Generation</h3>
+<p>We begin by simulating a data set using the <code>sim.data()</code>
+function. For <span class="math inline">\(n\)</span> subjects, we
+generate <span class="math inline">\(p\)</span> covariates from
+independent standard normal distributions. Given true parameters <span class="math inline">\(\pmb{\alpha}_0\)</span> and <span class="math inline">\(\pmb{\beta}_0\)</span>, we compute the multinomial
+probabilities for the outcome for each individual and simulate <span class="math inline">\(y_i\)</span> accordingly.</p>
 <pre class="r"><code># sample size
 n &lt;- 1000
 
@@ -602,32 +636,180 @@ alpha0 &lt;- seq(.5, 1.5, length = J - 1) # category-specific intercepts
 beta0 &lt;- c(rep(1, 4), # slopes
            rep(0, p - 4)) 
 
-# linear predictors
-eta0 &lt;- X %*% beta0
-
-# compute the cumulative probabilities for each of J categories and n subjects
-cum.probs &lt;- matrix(nrow = n,
-                    ncol = J)
-for (j in 1:(J-1)) {
-  cum.probs[, j] &lt;- inv.logit(alpha0[j] + eta0)
-}
-cum.probs[, J] &lt;- 1
-
-# compute the probabilities for each of J categories and n subjects
-probs &lt;- cum.probs - cbind(0, cum.probs[, -J])
-
-# simulate outcomes
-y &lt;- numeric(n)
-for (i in 1:n) {
-  y[i] &lt;- sample(x = 1:J,
-                 size = 1,
-                 prob = probs[i,])
-}
-
-# combine into one data set
-dat &lt;- data.frame(cbind(y, X))
-colnames(dat) &lt;- c(&quot;y&quot;, paste0(&quot;X&quot;, 1:p))
-dat$y &lt;- factor(dat$y, levels = 1:J, ordered = T)</code></pre>
+# simulate data according to the above parameters
+dat &lt;- sim.data(formula = y ~ .,
+                n = 1000,
+                alpha = alpha0,
+                beta = beta0)</code></pre>
+<p>For this example, we simulated data with <span class="math inline">\(n\)</span> = 1000 observations, <span class="math inline">\(p\)</span> = 10 covariates, <span class="math inline">\(J\)</span> = 4 ordinal outcome categories, and
+true parameter values of <span class="math inline">\(\pmb{\alpha}_0\)</span> = (0.5, 1, 1.5) and <span class="math inline">\(\pmb{\beta}_0\)</span> = (1, 1, 1, 1, 0, 0, 0, 0,
+0, 0). Note that this implies the first 4 covariates are truly
+associated with the outcome and the last 6 are not. The first 10 rows of
+the data set are shown below.</p>
+<pre class="r"><code>dat[1:10, ] %&gt;% 
+  mutate_if(.predicate = function(x) is.numeric(x),
+            .funs = function(x) round(x, digits = 2))</code></pre>
+<pre><code>##    y    X1    X2    X3    X4    X5    X6    X7    X8    X9   X10
+## 1  4 -0.80 -1.41 -0.94  0.23  0.52 -0.21  0.86  1.05  0.95 -2.08
+## 2  1 -1.06  1.08  1.39 -0.82  0.99 -0.11 -1.63  0.29  0.46 -0.45
+## 3  1 -1.04  1.17  1.63 -0.85  0.27 -0.46 -0.23  1.24 -0.36 -0.17
+## 4  4 -1.19  0.29  0.41 -1.98 -0.69 -0.68 -1.03 -0.69 -1.05  0.90
+## 5  4 -0.50 -0.55 -0.09 -0.81 -0.72 -0.79 -1.14 -0.67  0.31 -0.03
+## 6  1 -0.52 -0.40  0.21  1.46 -0.10 -0.34 -1.52  0.94  1.99  1.86
+## 7  4 -0.30 -1.27 -0.09  0.61  0.21 -1.27 -0.75  1.00 -1.83 -1.21
+## 8  2  0.47 -0.01 -0.46  0.30  1.63 -1.39 -0.47  1.02  1.34 -1.70
+## 9  2 -0.25  0.34  0.57 -0.48  0.25  0.42  0.06  0.79 -1.48 -0.81
+## 10 1  1.26  0.39 -1.46  2.46 -2.07  3.22  1.41 -1.38 -0.72  1.27</code></pre>
+</div>
+<div id="estimation" class="section level3">
+<h3>Estimation</h3>
+<p>The likelihood function for the ordinal regression model is</p>
+<p><span class="math display">\[ l(\pmb{\alpha}, \pmb{\beta}) =
+\prod_{i=1}^n \prod_{j=1}^J \left\{ \text{logit}^{-1}(\alpha_j +
+\pmb{x}_i^T\pmb{\beta}) - \text{logit}^{-1}(\alpha_{j-1} +
+\pmb{x}_i^T\pmb{\beta} )   \right\} ^ {_(y_i = j)}. \]</span></p>
+<p>The log-likelihood can be maximized numerically using the BFGS method
+in <code>optim</code>. To ensure that the MLEs for <span class="math inline">\(\pmb{\alpha}\)</span> satisfy the constraint <span class="math inline">\(\alpha_1 \leq \dots \leq \alpha_{J-1}\)</span>, we
+can reparametrize the model with <span class="math inline">\(\pmb{\zeta}
+= (\zeta_1, \dots, \zeta_{J-1})^T\)</span>, where <span class="math inline">\(\zeta_1 = \alpha_1\)</span> and <span class="math inline">\(\zeta_j = \log(\alpha_j - \alpha_{j-1})\)</span>
+for <span class="math inline">\(j = 2, \dots, J-1\)</span>.</p>
+<p>The asymptotic covariance matrix of the parameter estimates can be
+obtained by inverting the negative hessian of the log-likelihood
+function evaluated at the MLEs.</p>
+</div>
+<div id="lasso-penalization" class="section level3">
+<h3>LASSO Penalization</h3>
+<p>To avoid overfitting and encourage parsimony in our model, we can fit
+this ordinal regression model with a LASSO penalty. This involves
+maximizing an objective function that is the sum of the log-likelihood
+and an <span class="math inline">\(L^1\)</span> penalty term.</p>
+<p><span class="math display">\[ f(\pmb{\alpha}, \pmb{\beta}) =
+\frac{1}{n} l(\pmb{\alpha}, \pmb{\beta}) - \lambda\sum_{k = 1}^p
+|\beta_k| \]</span> ### Implementation</p>
+<p>We can now test our own version of an ordinal regression function on
+the simulated data set with and without a LASSO penalty.</p>
+<pre class="r"><code># test our ordinal regression function with no LASSO penalty
+ord.mod.lambda0 &lt;- ordreg.lasso(formula = y ~ .,
+                                data = dat,
+                                lambda = 0)
+ord.mod.lambda0</code></pre>
+<pre><code>## $alpha
+## [1] 0.4051154 0.9091942 1.4002434
+## 
+## $beta
+##  [1]  0.8864340026  1.0346345904  0.9301419099  0.9659812137  0.0606541322
+##  [6] -0.0419479973  0.0566004123  0.0004611143  0.0688341330  0.0196035732
+## 
+## $vcov
+##                [,1]          [,2]          [,3]          [,4]          [,5]
+##  [1,]  6.741688e-03  5.603027e-03  4.885401e-03  8.764774e-04  1.283258e-03
+##  [2,]  5.603027e-03  7.541451e-03  6.622002e-03  1.401641e-03  1.868947e-03
+##  [3,]  4.885401e-03  6.622002e-03  8.836573e-03  1.893977e-03  2.381405e-03
+##  [4,]  8.764774e-04  1.401641e-03  1.893977e-03  7.359415e-03  1.636495e-03
+##  [5,]  1.283258e-03  1.868947e-03  2.381405e-03  1.636495e-03  6.932039e-03
+##  [6,]  1.103415e-03  1.687071e-03  2.168902e-03  1.748710e-03  1.400973e-03
+##  [7,]  1.106947e-03  1.679017e-03  2.196577e-03  1.629388e-03  1.759083e-03
+##  [8,]  4.323211e-04  4.822709e-04  5.144238e-04 -5.617262e-05  1.650524e-04
+##  [9,] -1.555284e-04 -1.713174e-04 -1.810107e-04 -2.534966e-04 -3.379855e-04
+## [10,] -3.018341e-04 -2.827566e-04 -2.490062e-04  1.420352e-04  1.041958e-04
+## [11,] -1.943636e-04 -1.817504e-04 -1.789334e-04  9.675144e-05  2.836707e-05
+## [12,] -6.447624e-05 -5.926695e-05 -4.708337e-05  5.171394e-04  2.300769e-04
+## [13,]  2.842556e-04  2.909802e-04  2.524416e-04  4.659095e-05 -1.284989e-05
+##                [,6]          [,7]          [,8]          [,9]         [,10]
+##  [1,]  1.103415e-03  1.106947e-03  4.323211e-04 -1.555284e-04 -3.018341e-04
+##  [2,]  1.687071e-03  1.679017e-03  4.822709e-04 -1.713174e-04 -2.827566e-04
+##  [3,]  2.168902e-03  2.196577e-03  5.144238e-04 -1.810107e-04 -2.490062e-04
+##  [4,]  1.748710e-03  1.629388e-03 -5.617262e-05 -2.534966e-04  1.420352e-04
+##  [5,]  1.400973e-03  1.759083e-03  1.650524e-04 -3.379855e-04  1.041958e-04
+##  [6,]  7.140269e-03  1.918245e-03 -1.459771e-04 -5.231519e-04 -1.812376e-04
+##  [7,]  1.918245e-03  7.162261e-03  8.339625e-05 -4.177156e-04 -1.152069e-04
+##  [8,] -1.459771e-04  8.339625e-05  5.725835e-03  1.000618e-04  1.347113e-04
+##  [9,] -5.231519e-04 -4.177156e-04  1.000618e-04  5.292429e-03  9.038236e-05
+## [10,] -1.812376e-04 -1.152069e-04  1.347113e-04  9.038236e-05  5.317746e-03
+## [11,]  3.999647e-04  8.452697e-05 -1.363097e-04  1.486057e-04  1.296418e-04
+## [12,]  1.121599e-04 -1.000047e-04 -1.207375e-04 -5.903933e-05  5.042608e-04
+## [13,] -9.159264e-05  3.508071e-04  1.929476e-04 -5.073144e-05 -3.540884e-05
+##               [,11]         [,12]         [,13]
+##  [1,] -1.943636e-04 -6.447624e-05  2.842556e-04
+##  [2,] -1.817504e-04 -5.926695e-05  2.909802e-04
+##  [3,] -1.789334e-04 -4.708337e-05  2.524416e-04
+##  [4,]  9.675144e-05  5.171394e-04  4.659095e-05
+##  [5,]  2.836707e-05  2.300769e-04 -1.284989e-05
+##  [6,]  3.999647e-04  1.121599e-04 -9.159264e-05
+##  [7,]  8.452697e-05 -1.000047e-04  3.508071e-04
+##  [8,] -1.363097e-04 -1.207375e-04  1.929476e-04
+##  [9,]  1.486057e-04 -5.903933e-05 -5.073144e-05
+## [10,]  1.296418e-04  5.042608e-04 -3.540884e-05
+## [11,]  4.941394e-03  8.996760e-05 -2.756592e-04
+## [12,]  8.996760e-05  5.743429e-03 -1.438034e-04
+## [13,] -2.756592e-04 -1.438034e-04  5.544683e-03
+## 
+## $loglik
+## [1] -820.6167
+## 
+## $lasso.penalty
+## [1] 0</code></pre>
+<pre class="r"><code># test our ordinal regression function with a LASSO penalty
+ord.mod.lambda1 &lt;- ordreg.lasso(formula = y ~ .,
+                                data = dat,
+                                lambda = 0.05)
+ord.mod.lambda1</code></pre>
+<pre><code>## $alpha
+## [1] 0.2764768 0.6874972 1.0960558
+## 
+## $beta
+##  [1]  4.326300e-01  6.208782e-01  4.935651e-01  5.229865e-01  1.623551e-04
+##  [6]  9.849171e-06  2.550981e-04 -4.099888e-05  1.886672e-04  1.308981e-04
+## 
+## $vcov
+##                [,1]          [,2]          [,3]          [,4]          [,5]
+##  [1,]  4.988419e-03  4.187413e-03  3.631625e-03  1.902974e-04  5.479455e-04
+##  [2,]  4.187413e-03  5.457938e-03  4.786120e-03  4.887950e-04  8.962927e-04
+##  [3,]  3.631625e-03  4.786120e-03  6.305162e-03  7.838525e-04  1.209669e-03
+##  [4,]  1.902974e-04  4.887950e-04  7.838525e-04  5.126933e-03  4.532609e-04
+##  [5,]  5.479455e-04  8.962927e-04  1.209669e-03  4.532609e-04  4.692713e-03
+##  [6,]  3.937589e-04  7.223498e-04  1.004161e-03  6.764919e-04  3.149176e-04
+##  [7,]  3.261158e-04  6.540111e-04  9.640353e-04  4.933434e-04  5.284027e-04
+##  [8,]  2.945949e-04  3.217512e-04  3.383125e-04 -7.909226e-05  8.578724e-05
+##  [9,] -4.414973e-05 -4.723622e-05 -5.079062e-05 -1.062122e-04 -1.900229e-04
+## [10,] -2.650404e-04 -2.582990e-04 -2.429255e-04  1.244612e-05  1.251636e-05
+## [11,] -1.387896e-04 -1.321412e-04 -1.265444e-04  1.172781e-04  3.471983e-05
+## [12,] -1.074042e-04 -1.059332e-04 -1.003149e-04  3.100745e-04  5.803881e-05
+## [13,]  1.753375e-04  1.769832e-04  1.565383e-04 -9.936578e-06 -1.121114e-04
+##                [,6]          [,7]          [,8]          [,9]         [,10]
+##  [1,]  3.937589e-04  0.0003261158  2.945949e-04 -4.414973e-05 -2.650404e-04
+##  [2,]  7.223498e-04  0.0006540111  3.217512e-04 -4.723622e-05 -2.582990e-04
+##  [3,]  1.004161e-03  0.0009640353  3.383125e-04 -5.079062e-05 -2.429255e-04
+##  [4,]  6.764919e-04  0.0004933434 -7.909226e-05 -1.062122e-04  1.244612e-05
+##  [5,]  3.149176e-04  0.0005284027  8.578724e-05 -1.900229e-04  1.251636e-05
+##  [6,]  4.924080e-03  0.0006861401 -1.100925e-04 -2.652723e-04 -2.046755e-04
+##  [7,]  6.861401e-04  0.0048861753  2.747110e-05 -2.576479e-04 -1.436424e-04
+##  [8,] -1.100925e-04  0.0000274711  4.556715e-03  5.908277e-05  1.569841e-04
+##  [9,] -2.652723e-04 -0.0002576479  5.908277e-05  4.119393e-03  6.109254e-05
+## [10,] -2.046755e-04 -0.0001436424  1.569841e-04  6.109254e-05  4.226564e-03
+## [11,]  2.970630e-04  0.0001149657 -1.054843e-04  9.630560e-05  1.220572e-04
+## [12,] -3.258139e-05 -0.0001927678 -5.700315e-05 -3.773200e-05  3.725714e-04
+## [13,] -1.575685e-04  0.0001449772  9.785815e-05 -2.924372e-05 -7.208090e-06
+##               [,11]         [,12]         [,13]
+##  [1,] -1.387896e-04 -1.074042e-04  1.753375e-04
+##  [2,] -1.321412e-04 -1.059332e-04  1.769832e-04
+##  [3,] -1.265444e-04 -1.003149e-04  1.565383e-04
+##  [4,]  1.172781e-04  3.100745e-04 -9.936578e-06
+##  [5,]  3.471983e-05  5.803881e-05 -1.121114e-04
+##  [6,]  2.970630e-04 -3.258139e-05 -1.575685e-04
+##  [7,]  1.149657e-04 -1.927678e-04  1.449772e-04
+##  [8,] -1.054843e-04 -5.700315e-05  9.785815e-05
+##  [9,]  9.630560e-05 -3.773200e-05 -2.924372e-05
+## [10,]  1.220572e-04  3.725714e-04 -7.208090e-06
+## [11,]  3.989198e-03  6.662524e-05 -1.279612e-04
+## [12,]  6.662524e-05  4.497243e-03 -2.888443e-05
+## [13,] -1.279612e-04 -2.888443e-05  4.406573e-03
+## 
+## $loglik
+## [1] -964.4064
+## 
+## $lasso.penalty
+## [1] 0.1035424</code></pre>
 <p>We then use an existing function <code>MASS::polr()</code> to run an
 ordinal logistic regression model on the simulated data set.</p>
 <pre class="r"><code># example of ordinal regression using existing function MASS::polr
@@ -639,64 +821,28 @@ summary(ord.mod.polr)</code></pre>
 ## polr(formula = polr(y ~ ., data = dat))
 ## 
 ## Coefficients:
-##        Value Std. Error  t value
-## X1  -1.00798    0.08612 -11.7046
-## X2  -1.12335    0.08914 -12.6019
-## X3  -1.07942    0.08937 -12.0786
-## X4  -0.94372    0.08602 -10.9707
-## X5  -0.06575    0.07788  -0.8442
-## X6  -0.05497    0.07858  -0.6995
-## X7   0.06481    0.07547   0.8587
-## X8  -0.09882    0.07826  -1.2626
-## X9  -0.11114    0.07698  -1.4437
-## X10  0.17147    0.08091   2.1193
+##         Value Std. Error  t value
+## X1  -0.886465    0.08579 -10.3331
+## X2  -1.034659    0.08326 -12.4268
+## X3  -0.930167    0.08450 -11.0077
+## X4  -0.966048    0.08463 -11.4146
+## X5  -0.060643    0.07567  -0.8014
+## X6   0.041957    0.07275   0.5767
+## X7  -0.056618    0.07292  -0.7764
+## X8  -0.000471    0.07030  -0.0067
+## X9  -0.068791    0.07579  -0.9077
+## X10 -0.019605    0.07446  -0.2633
 ## 
 ## Intercepts:
 ##     Value    Std. Error t value 
-## 1|2   0.4126   0.0856     4.8169
-## 2|3   0.9012   0.0907     9.9371
-## 3|4   1.3664   0.0981    13.9309
+## 1|2   0.4052   0.0821     4.9345
+## 2|3   0.9092   0.0868    10.4693
+## 3|4   1.4003   0.0940    14.8960
 ## 
-## Residual Deviance: 1457.884 
-## AIC: 1483.884</code></pre>
+## Residual Deviance: 1641.233 
+## AIC: 1667.233</code></pre>
 <pre class="r"><code>logLik(ord.mod.polr)</code></pre>
-<pre><code>## &#39;log Lik.&#39; -728.942 (df=13)</code></pre>
-<p>We can now test our own version of an ordinal regression
-function.</p>
-<pre class="r"><code># test our ordinal regression function with no LASSO penalty
-ord.mod.lambda0 &lt;- ordreg.lasso(formula = y ~ .,
-                                data = dat,
-                                lambda = 0)
-ord.mod.lambda0</code></pre>
-<pre><code>## $alpha
-## [1] 0.4126329 0.9013649 1.3666908
-## 
-## $beta
-##  [1]  1.00817588  1.12352290  1.07962852  0.94381524  0.06576043  0.05503081
-##  [7] -0.06486401  0.09883208  0.11116388 -0.17152971
-## 
-## $loglik
-## [1] -728.942
-## 
-## $lasso.penalty
-## [1] 0</code></pre>
-<pre class="r"><code># test our ordinal regression function with a LASSO penalty
-ord.mod.lambda1 &lt;- ordreg.lasso(formula = y ~ .,
-                                data = dat,
-                                lambda = 0.05)
-ord.mod.lambda1</code></pre>
-<pre><code>## $alpha
-## [1] 0.2916173 0.6860516 1.0516702
-## 
-## $beta
-##  [1]  5.671096e-01  6.261329e-01  6.199553e-01  5.046459e-01  2.185654e-05
-##  [6]  1.041395e-04 -2.034234e-04  3.168250e-04  4.292973e-04 -7.360613e-05
-## 
-## $loglik
-## [1] -889.5332
-## 
-## $lasso.penalty
-## [1] 0.1159496</code></pre>
+<pre><code>## &#39;log Lik.&#39; -820.6167 (df=13)</code></pre>
 <p>We can now compare the parameter estimates between the 3 methods for
 fitting the model.</p>
 <pre class="r"><code>data.frame(&quot;Parameter&quot; = c(paste0(&quot;alpha&quot;, 1:(J-1)),
@@ -747,13 +893,13 @@ alpha1
 0.5
 </td>
 <td style="text-align:right;">
-0.413
+0.405
 </td>
 <td style="text-align:right;">
-0.413
+0.405
 </td>
 <td style="text-align:right;">
-0.292
+0.276
 </td>
 </tr>
 <tr>
@@ -767,13 +913,13 @@ alpha2
 1.0
 </td>
 <td style="text-align:right;">
-0.901
+0.909
 </td>
 <td style="text-align:right;">
-0.901
+0.909
 </td>
 <td style="text-align:right;">
-0.686
+0.687
 </td>
 </tr>
 <tr>
@@ -787,13 +933,13 @@ alpha3
 1.5
 </td>
 <td style="text-align:right;">
-1.366
+1.400
 </td>
 <td style="text-align:right;">
-1.367
+1.400
 </td>
 <td style="text-align:right;">
-1.052
+1.096
 </td>
 </tr>
 <tr>
@@ -807,13 +953,13 @@ beta1
 1.0
 </td>
 <td style="text-align:right;">
-1.008
+0.886
 </td>
 <td style="text-align:right;">
-1.008
+0.886
 </td>
 <td style="text-align:right;">
-0.567
+0.433
 </td>
 </tr>
 <tr>
@@ -827,13 +973,13 @@ beta2
 1.0
 </td>
 <td style="text-align:right;">
-1.123
+1.035
 </td>
 <td style="text-align:right;">
-1.124
+1.035
 </td>
 <td style="text-align:right;">
-0.626
+0.621
 </td>
 </tr>
 <tr>
@@ -847,13 +993,13 @@ beta3
 1.0
 </td>
 <td style="text-align:right;">
-1.079
+0.930
 </td>
 <td style="text-align:right;">
-1.080
+0.930
 </td>
 <td style="text-align:right;">
-0.620
+0.494
 </td>
 </tr>
 <tr>
@@ -867,13 +1013,13 @@ beta4
 1.0
 </td>
 <td style="text-align:right;">
-0.944
+0.966
 </td>
 <td style="text-align:right;">
-0.944
+0.966
 </td>
 <td style="text-align:right;">
-0.505
+0.523
 </td>
 </tr>
 <tr>
@@ -887,10 +1033,10 @@ beta5
 0.0
 </td>
 <td style="text-align:right;">
-0.066
+0.061
 </td>
 <td style="text-align:right;">
-0.066
+0.061
 </td>
 <td style="text-align:right;">
 0.000
@@ -907,10 +1053,10 @@ beta6
 0.0
 </td>
 <td style="text-align:right;">
-0.055
+-0.042
 </td>
 <td style="text-align:right;">
-0.055
+-0.042
 </td>
 <td style="text-align:right;">
 0.000
@@ -927,10 +1073,10 @@ beta7
 0.0
 </td>
 <td style="text-align:right;">
--0.065
+0.057
 </td>
 <td style="text-align:right;">
--0.065
+0.057
 </td>
 <td style="text-align:right;">
 0.000
@@ -947,10 +1093,10 @@ beta8
 0.0
 </td>
 <td style="text-align:right;">
-0.099
+0.000
 </td>
 <td style="text-align:right;">
-0.099
+0.000
 </td>
 <td style="text-align:right;">
 0.000
@@ -967,10 +1113,10 @@ beta9
 0.0
 </td>
 <td style="text-align:right;">
-0.111
+0.069
 </td>
 <td style="text-align:right;">
-0.111
+0.069
 </td>
 <td style="text-align:right;">
 0.000
@@ -987,10 +1133,10 @@ beta10
 0.0
 </td>
 <td style="text-align:right;">
--0.171
+0.020
 </td>
 <td style="text-align:right;">
--0.172
+0.020
 </td>
 <td style="text-align:right;">
 0.000
@@ -998,6 +1144,7 @@ beta10
 </tr>
 </tbody>
 </table>
+</div>
 
 
 

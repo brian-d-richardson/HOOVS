@@ -8,5 +8,5 @@
 #'
 #' @export
 get.zeta <- function(alpha) {
-  log(diff(c(0, alpha)))
+  c(alpha[1], log(diff(alpha)))
 }
