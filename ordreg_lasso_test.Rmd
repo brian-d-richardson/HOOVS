@@ -32,7 +32,7 @@ The following proportional odds model relates the cumulative probability for sub
 
 $$ \text{logit}\{ P(Y_i \leq j | \pmb{x}_i) \} = \alpha_j + \pmb{x}_i^T \pmb{\beta}. $$
 
-In this model, $\alpha_1, \dots, \alpha_{J-1}$ are outcome category-specific intercepts for the first $J-1$ ordinal outcome categories and $\beta_1, \dots, \beta_p$ are the slopes corresponding to the $p$ covariates. Since the cumulative probabilities must be nondecreasing in $j$, i.e., is $P(Y_i \leq j | \pmb{x}_i) <= P(Y_i \leq j+1 | \pmb{x}_i)$, we require that $\alpha_1 \leq \dots \leq \alpha_{J-1}$.
+In this model, $\alpha_1, \dots, \alpha_{J-1}$ are outcome category-specific intercepts for the first $J-1$ ordinal outcome categories and $\beta_1, \dots, \beta_p$ are the slopes corresponding to the $p$ covariates. Since the cumulative probabilities must be nondecreasing in $j$, i.e., is $P(Y_i \leq j | \pmb{x}_i) <= P(Y_i \leq j+1 | \pmb{x}_i)$, we require that $\alpha_1 < \dots < \alpha_{J-1}$.
 
 ### Data Generation
 
@@ -48,11 +48,6 @@ p <- 10
 
 # number of categories for ordinal outcome
 J <- 4
-
-# create n x p covariate matrix
-X <- matrix(nrow = n,
-            ncol = p,
-            data = rnorm(n*p))
 
 # set population parameters
 alpha0 <- seq(.5, 1.5, length = J - 1) # category-specific intercepts
@@ -83,7 +78,7 @@ The likelihood function for the ordinal regression model is
 
 $$ l(\pmb{\alpha}, \pmb{\beta}) = \prod_{i=1}^n \prod_{j=1}^J \left\{ \text{logit}^{-1}(\alpha_j + \pmb{x}_i^T\pmb{\beta}) - \text{logit}^{-1}(\alpha_{j-1} + \pmb{x}_i^T\pmb{\beta} )   \right\} ^ {_(y_i = j)}. $$
 
-The log-likelihood can be maximized numerically using the BFGS method in `optim`. To ensure that the MLEs for $\pmb{\alpha}$ satisfy the constraint $\alpha_1 \leq \dots \leq \alpha_{J-1}$, we can reparametrize the model with $\pmb{\zeta} = (\zeta_1, \dots, \zeta_{J-1})^T$, where $\zeta_1 = \alpha_1$ and $\zeta_j = \log(\alpha_j - \alpha_{j-1})$ for $j = 2, \dots, J-1$.
+The log-likelihood can be maximized numerically using the BFGS method in `optim`. To ensure that the MLEs for $\pmb{\alpha}$ satisfy the constraint $\alpha_1 < \dots < \alpha_{J-1}$, we can reparametrize the model with $\pmb{\zeta} = (\zeta_1, \dots, \zeta_{J-1})^T$, where $\zeta_1 = \alpha_1$ and $\zeta_j = \log(\alpha_j - \alpha_{j-1})$ for $j = 2, \dots, J-1$.
 
 The asymptotic covariance matrix of the parameter estimates can be obtained by inverting the negative hessian of the log-likelihood function evaluated at the MLEs.
 
@@ -91,7 +86,8 @@ The asymptotic covariance matrix of the parameter estimates can be obtained by i
 
 To avoid overfitting and encourage parsimony in our model, we can fit this ordinal regression model with a LASSO penalty. This involves maximizing an objective function that is the sum of the log-likelihood and an $L^1$ penalty term.
 
-$$ f(\pmb{\alpha}, \pmb{\beta}) = \frac{1}{n} l(\pmb{\alpha}, \pmb{\beta}) - \lambda\sum_{k = 1}^p |\beta_k| $$
+$$ f(\pmb{\alpha}, \pmb{\beta}) = \frac{1}{n} l(\pmb{\alpha}, \pmb{\beta}) - \lambda\sum_{k = 1}^p |\beta_k| $$ \
+
 ### Implementation
 
 We can now test our own version of an ordinal regression function on the simulated data set with and without a LASSO penalty.
@@ -142,12 +138,3 @@ data.frame("Parameter" = c(paste0("alpha", 1:(J-1)),
 
 
 ```
-
-
-
-
-
-
-
-
-
