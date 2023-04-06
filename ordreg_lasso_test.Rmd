@@ -1,7 +1,9 @@
 ---
 title: "Test of Ordinal Regression with LASSO"
 author: "Brian Richardson"
-output: html_document
+output: 
+  html_document:
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -9,11 +11,13 @@ output: html_document
 rm(list = ls())
 
 library(dplyr)
-library(MASS)
-library(foreign)
+library(tidyr)
 library(ggplot2)
+library(ordinalNet)
+library(foreign)
 library(devtools)
 library(kableExtra)
+library(tictoc)
 load_all()
 
 set.seed(1)
@@ -36,7 +40,7 @@ In this model, $\alpha_1, \dots, \alpha_{J-1}$ are outcome category-specific int
 
 ### Data Generation
 
-We begin by simulating a data set using the `sim.data()` function. For $n$ subjects, we generate $p$ covariates from independent standard normal distributions. Given true parameters $\pmb{\alpha}_0$ and $\pmb{\beta}_0$, we compute the multinomial probabilities for the outcome for each individual and simulate $y_i$ accordingly.
+We begin by simulating a data set using the `simulate.data()` function. For $n$ subjects, we generate $p$ covariates from independent standard normal distributions. Given true parameters $\pmb{\alpha}_0$ and $\pmb{\beta}_0$, we compute the multinomial probabilities for the outcome for each individual and simulate $y_i$ accordingly.
 
 ```{r}
 
@@ -44,29 +48,33 @@ We begin by simulating a data set using the `sim.data()` function. For $n$ subje
 n <- 1000
 
 # number of covariates
-p <- 10
+p <- 50
 
 # number of categories for ordinal outcome
 J <- 4
 
+# grid of lambdas
+lambdas <- seq(0, 0.2, 0.02)
+
 # set population parameters
-alpha0 <- seq(.5, 1.5, length = J - 1) # category-specific intercepts
-beta0 <- c(rep(1, 4), # slopes
-           rep(0, p - 4)) 
+alpha <- seq(.5, 1.5, length = J - 1) # category-specific intercepts
+zeta <- get.zeta(alpha)               # transformation of alpha
+beta <- rep(0, p)                     # slope parameters
+beta[1: floor(p / 2)] <- 1            # half of the betas are 0, other half are 1
 
 # simulate data according to the above parameters
-dat <- sim.data(formula = y ~ .,
-                n = 1000,
-                alpha = alpha0,
-                beta = beta0)
+dat <- simulate.data(
+  n = 1000,
+  alpha = alpha,
+  beta = beta)
 
 ```
 
-For this example, we simulated data with $n$ = `r n` observations, $p$ = `r p` covariates, $J$ = `r J` ordinal outcome categories, and true parameter values of $\pmb{\alpha}_0$ = (`r alpha0`) and $\pmb{\beta}_0$ = (`r beta0`). Note that this implies the first 4 covariates are truly associated with the outcome and the last 6 are not. The first 10 rows of the data set are shown below.
+For this example, we simulated data with $n$ = `r n` observations, $p$ = `r p` covariates, $J$ = `r J` ordinal outcome categories, and true parameter values of $\pmb{\alpha}_0$ = (`r alpha`) and $\pmb{\beta}_0$ = (`r beta`). Note that this implies the first half of the covariates are truly associated with the outcome and the last half are not. The first 10 rows and 10 columns of the data set are shown below.
 
 ```{r}
 
-dat[1:10, ] %>% 
+dat[1:10, 1:10] %>% 
   mutate_if(.predicate = function(x) is.numeric(x),
             .funs = function(x) round(x, digits = 2))
 
@@ -76,65 +84,129 @@ dat[1:10, ] %>%
 
 The likelihood function for the ordinal regression model is
 
-$$ l(\pmb{\alpha}, \pmb{\beta}) = \prod_{i=1}^n \prod_{j=1}^J \left\{ \text{logit}^{-1}(\alpha_j + \pmb{x}_i^T\pmb{\beta}) - \text{logit}^{-1}(\alpha_{j-1} + \pmb{x}_i^T\pmb{\beta} )   \right\} ^ {_(y_i = j)}. $$
+$$ L_n(\pmb{\alpha}, \pmb{\beta}) = \prod_{i=1}^n \prod_{j=1}^J \left\{ \text{logit}^{-1}(\alpha_j + \pmb{x}_i^T\pmb{\beta}) - \text{logit}^{-1}(\alpha_{j-1} + \pmb{x}_i^T\pmb{\beta} )   \right\} ^ {_(y_i = j)}. $$
 
-The log-likelihood can be maximized numerically using the BFGS method in `optim`. To ensure that the MLEs for $\pmb{\alpha}$ satisfy the constraint $\alpha_1 < \dots < \alpha_{J-1}$, we can reparametrize the model with $\pmb{\zeta} = (\zeta_1, \dots, \zeta_{J-1})^T$, where $\zeta_1 = \alpha_1$ and $\zeta_j = \log(\alpha_j - \alpha_{j-1})$ for $j = 2, \dots, J-1$.
+Let $l(\pmb{\alpha}, \pmb{\beta}) = \frac{-1}{n} \log L(\pmb{\alpha}, \pmb{\beta})$ be the standardized log-likelihood.
 
-The asymptotic covariance matrix of the parameter estimates can be obtained by inverting the negative hessian of the log-likelihood function evaluated at the MLEs.
+The LASSO-penalized ordinal regression model is fit by minimizing the following objective function with respect to $\pmb{\alpha}$ and $\pmb{\beta}$.
 
-### LASSO Penalization
+$$ f(\pmb{\alpha}, \pmb{\beta}) = l(\pmb{\alpha}, \pmb{\beta}) + \lambda\sum_{j=1}^p|\beta_j|. $$
 
-To avoid overfitting and encourage parsimony in our model, we can fit this ordinal regression model with a LASSO penalty. This involves maximizing an objective function that is the sum of the log-likelihood and an $L^1$ penalty term.
+### Proximal Gradient Descent Algorithm
 
-$$ f(\pmb{\alpha}, \pmb{\beta}) = \frac{1}{n} l(\pmb{\alpha}, \pmb{\beta}) - \lambda\sum_{k = 1}^p |\beta_k| $$ \
+The objective function can be minimized using a proximal gradient descent (PGD) algorithm.
+
+Fix the following initial parameters for the PGD algorithm: $m > 0$ (the initial step size), $a \in (0, 1)$ (the step size decrement value), and $\epsilon > 0$ (the convergence criterion).
+
+The proximal projection operator for the LASSO penalty (applied to $\pmb{\beta}$ but not to $\pmb{\alpha}$) is
+
+$$ \text{prox}_{\lambda m}(\pmb{w}, \pmb{z}) = \text{argmin}_{\pmb{\alpha}, \pmb{\beta}} \frac{1}{2m} \left(||\pmb{w} - \pmb{\alpha} ||_2^2 + ||\pmb{z} - \pmb{\beta} ||_2^2 \right) + \lambda\sum_{j=1}^p|\beta_j| = \left\{ \pmb{w},  \text{sign}(\pmb{z})(\pmb{z} - m \lambda)_+ \right\} $$
+
+Given current estimates $\pmb{\theta}^{(k)} = (\pmb{\alpha}^{(k)}, \pmb{\beta}^{(k)})^T$, search for updated estimates $\pmb{\theta}^{(k+1)}$ by following the steps:
+
+1)  propose a candidate update $\pmb{\theta} = \text{prox}_{\lambda m}\left\{\pmb{\theta}^{(k)} - \frac{1}{m} \nabla l(\pmb{\theta}^{(k)})\right\}$,
+
+2)  if the condition $l(\pmb{\theta}) \leq l(\pmb{\theta}^{(k)}) + \nabla l(\pmb{\theta}^{(k)})^T(\pmb{\theta} - \pmb{\theta}^{(k)}) + \frac{1}{2m} (\pmb{\theta} - \pmb{\theta}^{(k)})^T (\pmb{\theta} - \pmb{\theta}^{(k)})$ is met, then make the the update $\pmb{\theta}^{(k+1)} = \pmb{\theta}$,
+
+3)  else decrement the step size $m = am$ and returning to step 2.
+
+Continue updating $\pmb{\theta}^{(k)}$ until convergence, i.e., until $\left|\frac{f(\pmb{\theta}^{(k+1)}) - f(\pmb{\theta}^{(k)})}{f(\pmb{\theta}^{(k)})}\right| < \epsilon$.
+
+A technical note is that the $\pmb{\alpha}$ parameters are constrained by $\alpha_1 < \dots < \alpha_{J-1}$. We can reparametrize the model with $\pmb{\zeta} = (\zeta_1, \dots, \zeta_{J-1})^T$, where $\zeta_1 = \alpha_1$ and $\zeta_j = \log(\alpha_j - \alpha_{j-1})$ for $j = 2, \dots, J-1$. Then $\pmb{\zeta} \in \mathbb{R}^{J-1}$ have no constraints. So we can follow the above procedure to minimize the above objective function with respect to $\pmb{\zeta}$ and $\pmb{\beta}$, then back-transform to obtain estimates for $\pmb{\alpha}$.
 
 ### Implementation
 
-We can now test our own version of an ordinal regression function on the simulated data set with and without a LASSO penalty.
+We can test our version of a LASSO-penalized ordinal regression function on the simulated data for various values of $\lambda$: `r lambdas`.
 
 ```{r}
 
-# test our ordinal regression function with no LASSO penalty
-ord.mod.lambda0 <- ordreg.lasso(formula = y ~ .,
-                                data = dat,
-                                lambda = 0)
-ord.mod.lambda0
+# test our LASSO-penalized ordinal regression function
+tic("our ordreg.lasso() function")
+res.ordreg <- ordreg.lasso(
+  formula = y ~ .,
+  data = dat,
+  lambdas 
+)
+toc()
 
-# test our ordinal regression function with a LASSO penalty
-ord.mod.lambda1 <- ordreg.lasso(formula = y ~ .,
-                                data = dat,
-                                lambda = 0.05)
-ord.mod.lambda1
+coef.ordreg <- cbind(res.ordreg$alpha, res.ordreg$beta)
 
 ```
 
-We then use an existing function `MASS::polr()` to run an ordinal logistic regression model on the simulated data set.
+We then use an existing function `ordinalNet::ordinalNet()` to fit the same models with the same $\lambda$ values.
 
 ```{r}
 
-# example of ordinal regression using existing function MASS::polr
-ord.mod.polr <- polr(polr(y ~ ., data = dat))
-summary(ord.mod.polr)
-logLik(ord.mod.polr)
+# compare with ordinalNet results
+tic("ordinalNet() function")
+res.ordnet <- ordinalNet::ordinalNet(
+  x = as.matrix(dat[, -1]),
+  y = dat[, 1],
+  alpha = 1, # alpha = 1 corresponds to LASSO
+  lambdaVals = lambdas,
+  link = "logit",
+  family = "cumulative"
+)
+toc()
+
+# need to reverse the order of rows to match output
+coef.ordnet <- as.matrix(res.ordnet$coefs)[rev(1:length(lambdas)),]
 
 ```
 
-We can now compare the parameter estimates between the 3 methods for fitting the model.
+We can then compare the results from the two methods. If ours method is implemented correctly, then it should agree with the `ordinalNet` results.
 
 ```{r}
 
-data.frame("Parameter" = c(paste0("alpha", 1:(J-1)),
-                           paste0("beta", 1:p)),
-           "Truth" = c(alpha0, beta0),
-           "polr" = round(c(ord.mod.polr$zeta, -1 * ord.mod.polr$coefficients), 3),
-           "ordreg.lasso.0" = round(c(ord.mod.lambda0$alpha, ord.mod.lambda0$beta), 3),
-           "ordreg.lasso.1" = round(c(ord.mod.lambda1$alpha, ord.mod.lambda1$beta), 3)) %>%
-  kable(col.names = c("Paremeter", "Truth", "MASS:polr()",
-                      "ordreg.lasso (lambda = 0)",
-                      "ordreg.lasso (lambda = 0.05)"),
-        caption = "Ordinal Regression Model Estimates by Method") %>% 
-  kable_classic(full_width = F)
-  
+# create data frame with coefficient estimates from both methods
+coef.wide <- rbind(cbind("ordreg", lambdas, coef.ordreg),
+                   cbind("ordnet", lambdas, coef.ordnet)) %>% 
+  as.data.frame() %>% 
+  `colnames<-`(c("method",
+                 "lambda",
+                 paste0("alpha", 1:(J-1)),
+                 paste0("beta", 1:p))) %>% 
+  mutate_at(.vars = vars(-("method")),
+            .funs = as.numeric)
+
+coef.long <- coef.wide %>% 
+  pivot_longer(cols = -c(method, lambda)) %>% 
+  mutate(type = factor(ifelse(grepl("alpha", name, fixed = TRUE),
+                              "alpha", "beta")))
+
+ggplot(NULL,
+       aes(x = coef.long$value[coef.long$method == "ordnet"],
+           y = coef.long$value[coef.long$method == "ordreg"])) +
+  geom_point(size = 3,
+             shape = 1) +
+  geom_abline(color = "blue",
+              linetype = "dashed") +
+  labs(x = "Estimates from ordinalNet Function",
+       y = "Estimates from ordreg_lasso Function") +
+  ggtitle("Comparison of LASSO-Penalized Ordinal Regression Methods") +
+  theme_bw()
 
 
 ```
+
+As we hoped, the two methods do produce very similar results.
+
+We can now look at how the parameter estimates change as the penalty parameter $\lambda$ changes
+
+```{r}
+
+ggplot(data = filter(coef.long, method == "ordreg"),
+       aes(x = lambda,
+           y = value,
+           group = name,
+           color = type)) +
+  geom_line() +
+  labs(x = "Lambda",
+       y = "LASSO-Penalized Estimate",
+       color = "Parameter\nType") +
+  ggtitle("LASSO-Estimates vs Penalization Parameter Lambda") +
+  theme_bw()
+
+```
+
+Note in the above plot that the $\pmb{\alpha}$ estimates do not shrink all the way to 0 since they are not penalized in the LASSO model. On the other hand, the $\pmb{\beta}$ estimates do shrink to 0 as $\lambda$ increases. Recall that the data were simulated according to a model where half of the $\pmb{\beta}$ values are truly 0 and the other half are truly 1. It is clear in the above plot which covariates are truly not associated with the outcome based on how fast their corresponding parameter estimates shrink to 0.

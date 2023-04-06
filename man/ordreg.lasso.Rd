@@ -4,25 +4,26 @@
 \alias{ordreg.lasso}
 \title{Ordinal Logistic Regression with LASSO Penalty}
 \usage{
-ordreg.lasso(formula, data, lambda = 0)
+ordreg.lasso(formula, data, lambdas = 0)
 }
 \arguments{
 \item{formula:}{a symbolic description of the model to be fitted; an object of class \code{"formula"}}
 
 \item{data:}{a data frame containing the variables in the model}
 
-\item{lambda:}{LASSO penalty parameter; a non-negative number; default is \code{lambda = 0}, which corresponds to no penalty term}
+\item{lambdas:}{vector of LASSO penalty parameters; a vector of non-negative numbers; default is 0, which corresponds to no penalization}
 }
 \value{
 a list with the following elements:
 \itemize{
-\item{alpha: the estimated category specific intercepts for the lowest J-1 outcome categories; a numeric vector of length J-1}
-\item{beta: the estimated slopes; a numeric vector of length p}
-\item{vcov: asymptotic covariance matrix of unpenalized parameter estimates (NOTE: if lambda > 0, then this will overestimate the variance of the penalized estimates)}
-\item{loglik: the log-likelihood value at convergence (not including the LASSO penalty)}
-\item{lasso.penalty: the penalty term evaluated at the estimates for alpha and beta}
+\item{lambda: vector of LASSO penalty parameters}
+\item{alpha: matrix of alpha estimates with each row corresponding to a lambda value}
+\item{beta: matrix of beta estimates with each row corresponding to a lambda value}
+\itme{n.nonzero: number of nonzero parameters for each lambda value; a vector of non-negative integers}
+\item{loglik.val: log-likelihood values at convergence (not including the LASSO penalty) for each lambda value; a numeric vector}
+\item{bic: Bayesian information critetion value at convergence for each lambda value; a numeric vector}
 }
 }
 \description{
-This function computes the log-likelihood value from the ordinal regression model (with a logit link) given data and parameters
+This function fits LASS)-penalized ordinal regression models over a grid of penalty parameters.
 }

@@ -4,13 +4,14 @@
 #'
 #' @param y: outcome vector; a numeric vector of length n with values in 1, ..., J corresponding to the J ordinal outcome categories
 #' @param x: covariate matrix; n x p matrix with numeric elements
+#' @param alpha: category specific intercepts; numeric vector of length J-1; defaults to NULL, in which case zeta must be supplied instead
 #' @param zeta: used to generate category specific intercepts alpha = sum(exp(zeta)); numeric vector of length J-1
 #' @param beta: slope parameters; numeric vector of length p
 #'
 #' @return the log-likelihood value
 #'
 #' @export
-loglik <- function(y, x, zeta, beta) {
+loglik <- function(y, x, zeta, beta, alpha = NULL) {
 
   # number of observations
   n <- length(y)
@@ -19,7 +20,7 @@ loglik <- function(y, x, zeta, beta) {
   J <- max(y)
 
   # category-specific intercepts
-  alpha = get.alpha(zeta)
+  if (is.null(alpha)) { alpha <- get.alpha(zeta) }
 
   # linear predictor: a vector of length n
   eta <- x %*% beta

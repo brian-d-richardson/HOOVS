@@ -4,12 +4,14 @@
 \alias{loglik}
 \title{Ordinal Logistic Regression Log-likelihood Function}
 \usage{
-loglik(y, x, zeta, beta)
+loglik(y, x, zeta, beta, alpha = NULL)
 }
 \arguments{
 \item{y:}{outcome vector; a numeric vector of length n with values in 1, ..., J corresponding to the J ordinal outcome categories}
 
 \item{x:}{covariate matrix; n x p matrix with numeric elements}
+
+\item{alpha:}{category specific intercepts; numeric vector of length J-1; defaults to NULL, in which case zeta must be supplied instead}
 
 \item{zeta:}{used to generate category specific intercepts alpha = sum(exp(zeta)); numeric vector of length J-1}
 

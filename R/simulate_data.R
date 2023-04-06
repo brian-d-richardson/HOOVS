@@ -2,7 +2,6 @@
 #'
 #' This function simulates a data set from an ordinal regression model
 #'
-#' @param formula: a symbolic description of the model from which data are generated; an object of class `"formula"`
 #' @param n: number of observations to be simulated: a positive integer
 #' @param alpha: category specific intercepts for the lowest J-1 outcome categories; a numeric vector of length J-1
 #' @param beta: slope coefficients; a numeric vector of length p
@@ -10,7 +9,7 @@
 #' @return a data frame with n rows and the following p + 1 columns
 #'
 #' @export
-sim.data <- function(formula, n, alpha, beta) {
+simulate.data <- function(n, alpha, beta) {
 
   # number of outcome categories
   J <- length(alpha) + 1
