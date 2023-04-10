@@ -16,7 +16,6 @@ library(ggplot2)
 library(ordinalNet)
 library(foreign)
 library(devtools)
-library(kableExtra)
 library(tictoc)
 load_all()
 
@@ -36,7 +35,7 @@ The following proportional odds model relates the cumulative probability for sub
 
 $$ \text{logit}\{ P(Y_i \leq j | \pmb{x}_i) \} = \alpha_j + \pmb{x}_i^T \pmb{\beta}. $$
 
-In this model, $\alpha_1, \dots, \alpha_{J-1}$ are outcome category-specific intercepts for the first $J-1$ ordinal outcome categories and $\beta_1, \dots, \beta_p$ are the slopes corresponding to the $p$ covariates. Since the cumulative probabilities must be nondecreasing in $j$, i.e., is $P(Y_i \leq j | \pmb{x}_i) <= P(Y_i \leq j+1 | \pmb{x}_i)$, we require that $\alpha_1 < \dots < \alpha_{J-1}$.
+In this model, $\alpha_1, \dots, \alpha_{J-1}$ are outcome category-specific intercepts for the first $J-1$ ordinal outcome categories and $\beta_1, \dots, \beta_p$ are the slopes corresponding to the $p$ covariates. Since the cumulative probabilities must be nondecreasing in $j$, i.e., is $P(Y_i \leq j | \pmb{x}_i) < P(Y_i \leq j+1 | \pmb{x}_i)$, we require that $\alpha_1 < \dots < \alpha_{J-1}$.
 
 ### Data Generation
 
@@ -57,7 +56,7 @@ J <- 4
 lambdas <- seq(0, 0.2, 0.02)
 
 # set population parameters
-alpha <- seq(.5, 1.5, length = J - 1) # category-specific intercepts
+alpha <- seq(.5, 4, length = J - 1) # category-specific intercepts
 zeta <- get.zeta(alpha)               # transformation of alpha
 beta <- rep(0, p)                     # slope parameters
 beta[1: floor(p / 2)] <- 1            # half of the betas are 0, other half are 1
