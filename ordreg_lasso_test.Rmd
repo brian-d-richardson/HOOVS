@@ -57,7 +57,6 @@ lambdas <- seq(0, 0.2, 0.02)
 
 # set population parameters
 alpha <- seq(.5, 4, length = J - 1) # category-specific intercepts
-zeta <- get.zeta(alpha)               # transformation of alpha
 beta <- rep(0, p)                     # slope parameters
 beta[1: floor(p / 2)] <- 1            # half of the betas are 0, other half are 1
 

@@ -1,3 +1,349 @@
+
+#' Inverse Logit Derivative
+#'
+#' This function computes derivative of inverse logit at all elements in a numeric vector
+#'
+#' @param x: a numeric vector
+#'
+#' @return the inverse logit derivative
+#'
+#' @export
+inv.logit.d <- function(x) {
+  exp(x) / (1 + exp(x)) ^ 2
+}
+
+#' Inverse logit function
+#'
+#' This function computes the inverse logit of all elements in a numeric vector
+#'
+#' @param x: a numeric vector
+#'
+#' @return the inverse logit values
+#'
+#' @export
+inv.logit <- function(x) {
+  exp(x) / (1 + exp(x))
+}
+
+#' compute zeta from alpha
+#'
+#' This function computes the parameter vector zeta from the vector alpha
+#'
+#' @param zeta: a numeric vector
+#'
+#' @return alpha vector
+#'
+#' @keywords internal
+ordreg.alphatozeta <- function(alpha) {
+  c(alpha[1], log(diff(alpha)))
+}
+
+
+#' compute alpha from zeta
+#'
+#' This function computes the parameter vector alpha from the vector zeta
+#'
+#' @param zeta: a numeric vector
+#'
+#' @return alpha vector
+#'
+#' @keywords internal
+ordreg.zetatoalpha <- function(zeta) {
+  cumsum(c(zeta[1], exp(zeta[-1])))
+}
+
+#' compute derivative of alpha w.r.t. zeta
+#'
+#' This function computes the derivative of alpha w.r.t. zeta
+#'
+#' @param zeta: a numeric vector of length J-1
+#'
+#' @return a derivative matrix of size (J-1) x (J-1)
+#'
+#' @keywords internal
+ordreg.zetatoalpha.d <- function(zeta) {
+  d <- matrix(data = rep(c(1, exp(zeta[-1])), each = J - 1),
+                   nrow = J - 1)
+  d[upper.tri(d)] <- 0
+  return(d)
+}
+
+#' Ordinal Logistic Regression Log-likelihood Function
+#'
+#' This function computes the log-likelihood value from the ordinal regression model (with a logit link) given data and parameters
+#'
+#' @param y: outcome vector; a numeric vector of length n with values in 1, ..., J corresponding to the J ordinal outcome categories
+#' @param x: covariate matrix; n x p matrix with numeric elements
+#' @param alpha: category specific intercepts; numeric vector of length J-1; defaults to NULL, in which case zeta must be supplied instead
+#' @param zeta: used to generate category specific intercepts alpha = sum(exp(zeta)); numeric vector of length J-1
+#' @param beta: slope parameters; numeric vector of length p
+#'
+#' @return the log-likelihood value
+#'
+#' @export
+ordreg.loglik <- function(y, x, zeta, beta, alpha = NULL) {
+
+  # number of observations
+  n <- length(y)
+
+  # number of ordered factor levels
+  J <- max(y)
+
+  # category-specific intercepts
+  if (is.null(alpha)) { alpha <- ordreg.zetatoalpha(zeta) }
+
+  # linear predictor: a vector of length n
+  eta <- x %*% beta
+
+  # for each observation y, compute P(Y <= y | xi) - P(Y <= y - 1 | xi)
+  probs <- numeric(n)
+  for (i in 1:n) {
+    probs[i] <- ifelse(y[i] == J, 1,
+                       inv.logit(alpha[y[i]] + eta[i])) -
+                ifelse(y[i] == 1, 0,
+                       inv.logit(alpha[y[i] - 1] + eta[i]))
+  }
+
+  # compute log-likelihood: sum of log(p)
+  return(sum(log(probs)))
+}
+
+
+#' Ordinal Logistic Regression Log-likelihood Gradient
+#'
+#' This function computes the gradient of the log-likelihood value from the ordinal regression model (with a logit link) given data and parameters (zeta and beta)
+#'
+#' @param y: outcome vector; a numeric vector of length n with values in 1, ..., J corresponding to the J ordinal outcome categories
+#' @param x: covariate matrix; n x p matrix with numeric elements
+#' #' @param alpha: category specific intercepts; numeric vector of length J-1; defaults to NULL, in which case zeta must be supplied instead
+#' @param zeta: used to generate category specific intercepts alpha = sum(exp(zeta)); numeric vector of length J-1
+#' @param beta: slope parameters; numeric vector of length p
+#'
+#' @return the log-likelihood gradient value with respect to c(zeta, beta) or c(alpha, beta) depending on whether zeta or alpha is supplied.
+#'
+#' @export
+ordreg.loglik.d <- function(y, x, zeta, beta, alpha = NULL) {
+
+  # number of observations
+  n <- length(y)
+
+  if (is.null(alpha)) {
+
+    # category-specific intercepts
+    alpha <- ordreg.zetatoalpha(zeta)
+
+    # indicator for whether gradient should be taken w.r.t alpha
+    wrt.alpha <- FALSE
+
+  } else {
+    wrt.alpha <- TRUE
+  }
+
+  # number of ordered factor levels
+  J <- length(alpha) + 1
+
+  # linear predictor: a vector of length n
+  eta <- x %*% beta
+
+  # for each observation y compute:
+    # contribution to grad w.r.t. alpha
+    # contribution to grad w.r.t. beta
+  g.alpha <- matrix(data = 0, nrow = n, ncol = J - 1)
+  g.beta <- matrix(data = 0, nrow = n, ncol = p)
+  for (i in 1:n) {
+
+    if (y[i] == J) {
+
+      p_ij <- 1 - inv.logit(alpha[y[i] - 1] + eta[i])
+
+      psi_ij_1 <- d.inv.logit(alpha[y[i] - 1] + eta[i])
+
+      g.alpha[i, y[i] - 1] <- - psi_ij_1 / p_ij
+
+      g.beta[i, ] <- (0 - psi_ij_1) * x[i,] / p_ij
+
+    } else if (y[i] == 1) {
+
+      p_ij <- inv.logit(alpha[y[i]] + eta[i])
+
+      psi_ij <- d.inv.logit(alpha[y[i]] + eta[i])
+
+      g.alpha[i, y[i]] <- psi_ij / p_ij
+
+      g.beta[i, ] <- (psi_ij - 0) * x[i,] / p_ij
+
+    } else {
+
+      p_ij <- inv.logit(alpha[y[i]] + eta[i]) -
+              inv.logit(alpha[y[i] - 1] + eta[i])
+
+      psi_ij <- d.inv.logit(alpha[y[i]] + eta[i])
+      psi_ij_1 <- d.inv.logit(alpha[y[i] - 1] + eta[i])
+
+      g.alpha[i, y[i]] <- psi_ij / p_ij
+      g.alpha[i, y[i] - 1] <- - psi_ij_1 / p_ij
+
+      g.beta[i, ] <- (psi_ij - psi_ij_1) * x[i,] / p_ij
+
+    }
+  }
+
+  # return gradient of log-likelihood
+  if (wrt.alpha) {
+    return(c(apply(g.alpha, 2, sum),
+             apply(g.beta, 2, sum)))
+  } else {
+    return(c(apply(g.alpha, 2, sum) %*% ordreg.zetatoalpha.d(zeta),
+             apply(g.beta, 2, sum)))
+  }
+}
+
+#' Proximal Projection Operator
+#'
+#' This function computes the proximal projection operator for the LASSO penalty used in the proximal gradient descent algorithm
+#'
+#' @param z: a numeric vector to be projected
+#' @param lambda: LASSO penalty parameter; a non-negative number
+#' @param m: step size; a non-negative number
+#' @param ind: an optional vector with indices indicating which components of z should be projected; defaults to NULL, in which case all components of z are projected
+#'
+#' @return a numeric vector of the same length as z
+#'
+#' @keywords internal
+prox.proj <- function(z, lambda, m, ind = NULL) {
+
+  if (is.null(ind)) {ind <- 1:length(z)}
+
+  diff <- abs(z[ind]) - m * lambda
+
+  c(z[-ind], sign(z[ind]) *
+      ifelse(diff < 0, 0, diff))
+}
+
+
+#' Proximal Gradient Descent Algorithm
+#'
+#' Proximal gradient descent algorithm for
+#'
+#' @param y: outcome vector; a numeric vector of length n with values in 1, ..., J corresponding to the J ordinal outcome categories
+#' @param x: covariate matrix; n x p matrix with numeric elements
+#' @param zeta0: starting value for zeta; numeric vector of length J-1
+#' @param beta0: starting value for beta; numeric vector of length p
+#' @param lambda: LASSO penalty parameter; a non-negative number
+#' @param m: initial step size; a positive number; defaults to 5
+#' @param a: step-size decrement factor; a number in the interval (0, 1); defaults to 0.8
+#' @param eps: a stopping threshold for the relative change in successive evaluations of objective function; a positive number; defaults to 1E-8
+#' @param maxit: maximum number of iterations
+#' @param print.updates: an indicator for whether iteration updates should be output; defaults to FALSE
+#'
+#' @return a list with the following elements:
+#' \itemize{
+#' \itme{zeta: the estimated zeta parameters; a numeric vector of length J-1}
+#' \item{beta: the estimated slopes; a numeric vector of length p}
+#' \item{loglik.val: the log-likelihood value at convergence}
+#' \item{obj.val: the objective function value at convergence}
+#' \item{n.iterations: the number of outer loop iterations in the PGD algorithm}
+#' }
+#'
+#' @keywords internal
+ordreg.prox.grad.desc <- function(y, x, zeta0, beta0, lambda,
+                           m = 5, a = 0.8, eps = 1E-8,
+                           maxit = 1000, print.updates = FALSE) {
+
+  # sample size
+  n <- length(y)
+
+  # initiate difference in successive evaluations
+  delta <- 10^3
+
+  # indices for zeta and beta
+  zet <- 1:(length(zeta0))
+  bet <- length(zeta0) + 1:length(beta0)
+
+  # initiate parameters
+  theta.k <- c(zeta0, beta0)
+
+  # (-1/n) log-likelihood at current estimate
+  ll.k <- ordreg.loglik(y = y, x = x, zeta = theta.k[zet], beta = theta.k[bet]) / -n
+
+  # (-1/n) gradient of log-likelihood at current estimate
+  g.k <- ordreg.loglik.d(y = y, x = x, zeta = theta.k[zet], beta = theta.k[bet]) / -n
+
+  # objective function at current estimate
+  obj.k <- ll.k + lambda * sum(abs(theta.k[bet]))
+
+  # counter for iterations in outer loop
+  outer.its <- 0
+
+  ### START OUTER LOOP ###
+  while (outer.its <= maxit & delta >= eps) {
+
+    # print updates
+    if (print.updates) {
+      print(paste0("outer iteration: ", outer.its,
+                   "; current objective function value: ", obj.k,
+                   "; current step size: ", m))
+    }
+
+    # update outer iteration counter
+    (outer.its <- outer.its + 1)
+
+    # counter for iterations in inner loop
+    inner.its <- 0
+
+    ### START INNER LOOP FOR Kth ITERATION ###
+    while (inner.its < maxit) {
+
+      # update inner iteration counter
+      inner.its <- inner.its + 1
+
+      # update parameter estimate
+      theta <- prox.proj(z = theta.k - m * g.k,
+                         m = m,
+                         lambda = lambda,
+                         ind = bet)
+
+      # (-1/n) log-likelihood at proposed new theta
+      ll <- ordreg.loglik(y = y, x = x, zeta = theta[zet], beta = theta[bet]) / -n
+
+      # objective function at proposed new theta
+      obj <- ll + lambda * sum(abs(theta[bet]))
+
+      # compute local quadratic approximation
+      lqa.k <- ll.k + g.k %*% (theta - theta.k) +
+        (0.5 / m) * (theta - theta.k) %*% (theta - theta.k)
+
+      # check for majorization
+      if (ll <= lqa.k) {
+
+        # update difference in successive evaluations of objective function
+        delta <- abs((obj.k - obj) / obj.k)
+
+        # update theta.k, ll.k, obj.k, and g.k
+        theta.k <- theta
+        ll.k <- ll
+        obj.k <- obj
+        g.k <- ordreg.loglik.d(y = y, x = x, zeta = theta[zet], beta = theta[bet]) / -n
+
+        break
+      } else {
+        # shrink step size and repeat if majorization did not occur
+        m <- a * m
+      }
+    } ### END INNER LOOP FOR Kth ITERATION ###
+  } ### END OUTER LOOP ###
+
+  if (outer.its >= maxit) {
+    warning("maximum number of iterations reached without convergence")
+  }
+
+  return(list("zeta" = theta[zet],
+              "beta" = theta[bet],
+              "loglik.val" = - n * ll,
+              "obj.val" = obj,
+              "n.iterations" = outer.its))
+}
+
 #' Ordinal Logistic Regression with LASSO Penalty
 #'
 #' This function fits LASS)-penalized ordinal regression models over a grid of penalty parameters.
@@ -54,14 +400,14 @@ ordreg.lasso <- function(formula, data, lambdas = 0) {
   bic <- numeric(L)
 
   # initialize starting values
-  zeta0 <- get.zeta(seq(.1, 1, length = J - 1))
+  zeta0 <- ordreg.alphatozeta(seq(.1, 1, length = J - 1))
   beta0 <- rep(0, p)
 
   # loop through lambdas
   for (l in 1:L) {
 
     # fit model using PGD algorithm
-    pgd.fit <- prox.grad.desc(
+    pgd.fit <- ordreg.prox.grad.desc(
       y = y,
       x = x,
       zeta0 = zeta0,
@@ -77,7 +423,7 @@ ordreg.lasso <- function(formula, data, lambdas = 0) {
     n.nonzero[l] <- (sum(pgd.fit$beta != 0) + J - 1)
 
     # add results for current lambda to output
-    alpha[l, ] <- get.alpha(pgd.fit$zeta)
+    alpha[l, ] <- ordreg.zetatoalpha(pgd.fit$zeta)
     beta[l, ] <- pgd.fit$beta
     loglik.val[l] <- pgd.fit$loglik.val
     bic[l] <- -2 * pgd.fit$loglik.val +
@@ -91,3 +437,55 @@ ordreg.lasso <- function(formula, data, lambdas = 0) {
               "loglik.val" = loglik.val,
               "bic" = bic))
 }
+
+#' Slow Optimization Procedure
+#'
+#' Slow procedure to fit LASSO-penalized ordinal regression model; only included for purposes of comparing to faster approaches (like PGD).
+#'
+#' @param y: outcome vector; a numeric vector of length n with values in 1, ..., J corresponding to the J ordinal outcome categories
+#'  @param x: covariate matrix; n x p matrix with numeric elements
+#'  @param zeta0: starting value for zeta; numeric vector of length J-1
+#'  @param beta0: starting value for beta; numeric vector of length p
+#'  @param lambda: LASSO penalty parameter; a non-negative number
+#'
+#'#' @return a list with the following elements:
+#' \itemize{
+#' \itme{zeta: the estimated zeta parameters; a numeric vector of length J-1}
+#' \item{beta: the estimated slopes; a numeric vector of length p}
+#' \item{loglik.val: the log-likelihood value at convergence}
+#' \item{obj.val: the objective function value at convergence}
+#' \item{n.iterations: the number of outer loop iterations in the PGD algorithm}
+#' }
+#'
+#' @export
+ordreg.slow.fit <- function(y, x, zeta0, beta0, lambda) {
+
+  n <- length(y)
+
+  # maximize likelihood
+  opt.res <- optim(
+    par = c(zeta0, beta0),
+    fn = function(theta) {
+      beta <- theta[-(1:(J - 1))]
+      zeta <- theta[1:(J - 1)]
+      -(1 / n) * (
+        # log-likelihood
+        ordreg.loglik(zeta = zeta,
+               beta = beta,
+               y = y,
+               x = x)) +
+      # LASSO penalty
+      lambda * sum(abs(beta))
+    },
+    method = "BFGS")
+
+  zeta = opt.res$par[1:(J-1)]
+  beta = opt.res$par[-(1:(J-1))]
+
+  return(list("zeta" = zeta,
+              "beta" = beta,
+              "loglik.val" = -n * (opt.res$value - lambda * sum(abs(beta))),
+              "obj.val" = opt.res$value,
+              "n.iterations" = unname(opt.res$counts[1])))
+}
+
