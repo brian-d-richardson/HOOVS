@@ -8,7 +8,7 @@
 #' @return the inverse logit derivative
 #'
 #' @export
-d.inv.logit <- function(x) {
+inv.logit.d <- function(x) {
   exp(x) / (1 + exp(x)) ^ 2
 }
 
@@ -34,7 +34,7 @@ inv.logit <- function(x) {
 #' @return alpha vector
 #'
 #' @keywords internal
-get.zeta <- function(alpha) {
+ordreg.alphatozeta <- function(alpha) {
   c(alpha[1], log(diff(alpha)))
 }
 
@@ -48,7 +48,7 @@ get.zeta <- function(alpha) {
 #' @return alpha vector
 #'
 #' @keywords internal
-get.alpha <- function(zeta) {
+ordreg.zetatoalpha <- function(zeta) {
   cumsum(c(zeta[1], exp(zeta[-1])))
 }
 
@@ -61,7 +61,7 @@ get.alpha <- function(zeta) {
 #' @return a derivative matrix of size (J-1) x (J-1)
 #'
 #' @keywords internal
-d.alpha <- function(zeta) {
+ordreg.zetatoalpha.d <- function(zeta) {
   d <- matrix(data = rep(c(1, exp(zeta[-1])), each = J - 1),
                    nrow = J - 1)
   d[upper.tri(d)] <- 0
@@ -81,7 +81,7 @@ d.alpha <- function(zeta) {
 #' @return the log-likelihood value
 #'
 #' @export
-loglik <- function(y, x, zeta, beta, alpha = NULL) {
+ordreg.loglik <- function(y, x, zeta, beta, alpha = NULL) {
 
   # number of observations
   n <- length(y)
@@ -90,7 +90,7 @@ loglik <- function(y, x, zeta, beta, alpha = NULL) {
   J <- max(y)
 
   # category-specific intercepts
-  if (is.null(alpha)) { alpha <- get.alpha(zeta) }
+  if (is.null(alpha)) { alpha <- ordreg.zetatoalpha(zeta) }
 
   # linear predictor: a vector of length n
   eta <- x %*% beta
@@ -122,7 +122,7 @@ loglik <- function(y, x, zeta, beta, alpha = NULL) {
 #' @return the log-likelihood gradient value with respect to c(zeta, beta) or c(alpha, beta) depending on whether zeta or alpha is supplied.
 #'
 #' @export
-gloglik <- function(y, x, zeta, beta, alpha = NULL) {
+ordreg.loglik.d <- function(y, x, zeta, beta, alpha = NULL) {
 
   # number of observations
   n <- length(y)
@@ -130,7 +130,7 @@ gloglik <- function(y, x, zeta, beta, alpha = NULL) {
   if (is.null(alpha)) {
 
     # category-specific intercepts
-    alpha <- get.alpha(zeta)
+    alpha <- ordreg.zetatoalpha(zeta)
 
     # indicator for whether gradient should be taken w.r.t alpha
     wrt.alpha <- FALSE
@@ -193,7 +193,7 @@ gloglik <- function(y, x, zeta, beta, alpha = NULL) {
     return(c(apply(g.alpha, 2, sum),
              apply(g.beta, 2, sum)))
   } else {
-    return(c(apply(g.alpha, 2, sum) %*% d.alpha(zeta),
+    return(c(apply(g.alpha, 2, sum) %*% ordreg.zetatoalpha.d(zeta),
              apply(g.beta, 2, sum)))
   }
 }
@@ -245,8 +245,8 @@ prox.proj <- function(z, lambda, m, ind = NULL) {
 #' \item{n.iterations: the number of outer loop iterations in the PGD algorithm}
 #' }
 #'
-#' @export
-prox.grad.desc <- function(y, x, zeta0, beta0, lambda,
+#' @keywords internal
+ordreg.prox.grad.desc <- function(y, x, zeta0, beta0, lambda,
                            m = 5, a = 0.8, eps = 1E-8,
                            maxit = 1000, print.updates = FALSE) {
 
@@ -264,10 +264,10 @@ prox.grad.desc <- function(y, x, zeta0, beta0, lambda,
   theta.k <- c(zeta0, beta0)
 
   # (-1/n) log-likelihood at current estimate
-  ll.k <- loglik(y = y, x = x, zeta = theta.k[zet], beta = theta.k[bet]) / -n
+  ll.k <- ordreg.loglik(y = y, x = x, zeta = theta.k[zet], beta = theta.k[bet]) / -n
 
   # (-1/n) gradient of log-likelihood at current estimate
-  g.k <- gloglik(y = y, x = x, zeta = theta.k[zet], beta = theta.k[bet]) / -n
+  g.k <- ordreg.loglik.d(y = y, x = x, zeta = theta.k[zet], beta = theta.k[bet]) / -n
 
   # objective function at current estimate
   obj.k <- ll.k + lambda * sum(abs(theta.k[bet]))
@@ -304,7 +304,7 @@ prox.grad.desc <- function(y, x, zeta0, beta0, lambda,
                          ind = bet)
 
       # (-1/n) log-likelihood at proposed new theta
-      ll <- loglik(y = y, x = x, zeta = theta[zet], beta = theta[bet]) / -n
+      ll <- ordreg.loglik(y = y, x = x, zeta = theta[zet], beta = theta[bet]) / -n
 
       # objective function at proposed new theta
       obj <- ll + lambda * sum(abs(theta[bet]))
@@ -323,7 +323,7 @@ prox.grad.desc <- function(y, x, zeta0, beta0, lambda,
         theta.k <- theta
         ll.k <- ll
         obj.k <- obj
-        g.k <- gloglik(y = y, x = x, zeta = theta[zet], beta = theta[bet]) / -n
+        g.k <- ordreg.loglik.d(y = y, x = x, zeta = theta[zet], beta = theta[bet]) / -n
 
         break
       } else {
@@ -400,14 +400,14 @@ ordreg.lasso <- function(formula, data, lambdas = 0) {
   bic <- numeric(L)
 
   # initialize starting values
-  zeta0 <- get.zeta(seq(.1, 1, length = J - 1))
+  zeta0 <- ordreg.alphatozeta(seq(.1, 1, length = J - 1))
   beta0 <- rep(0, p)
 
   # loop through lambdas
   for (l in 1:L) {
 
     # fit model using PGD algorithm
-    pgd.fit <- prox.grad.desc(
+    pgd.fit <- ordreg.prox.grad.desc(
       y = y,
       x = x,
       zeta0 = zeta0,
@@ -423,7 +423,7 @@ ordreg.lasso <- function(formula, data, lambdas = 0) {
     n.nonzero[l] <- (sum(pgd.fit$beta != 0) + J - 1)
 
     # add results for current lambda to output
-    alpha[l, ] <- get.alpha(pgd.fit$zeta)
+    alpha[l, ] <- ordreg.zetatoalpha(pgd.fit$zeta)
     beta[l, ] <- pgd.fit$beta
     loglik.val[l] <- pgd.fit$loglik.val
     bic[l] <- -2 * pgd.fit$loglik.val +
@@ -458,7 +458,7 @@ ordreg.lasso <- function(formula, data, lambdas = 0) {
 #' }
 #'
 #' @export
-slow.fit <- function(y, x, zeta0, beta0, lambda) {
+ordreg.slow.fit <- function(y, x, zeta0, beta0, lambda) {
 
   n <- length(y)
 
@@ -470,7 +470,7 @@ slow.fit <- function(y, x, zeta0, beta0, lambda) {
       zeta <- theta[1:(J - 1)]
       -(1 / n) * (
         # log-likelihood
-        loglik(zeta = zeta,
+        ordreg.loglik(zeta = zeta,
                beta = beta,
                y = y,
                x = x)) +
