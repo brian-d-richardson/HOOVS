@@ -1,10 +1,13 @@
 Package: bios-735-project
-Title: What the Package Does (One Line, Title Case)
+Title: Variable Selection for Ordinal Outcomes
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+    person("Benjamin", "Bodek", , "bbodek@unc.edu", role = c("aut", "cre"))
+    person("Brian", "Chen", , "brichen@live.unc.edu", role = c("aut", "cre"))
+    person("Forrest", "Hurley", , "fehurley@unc.edu", role = c("aut", "cre"))
+    person("Emmanuel", "Rockwell", , "erockwell@unc.edu", role = c("aut", "cre"))
+    person("Brian", "Richardson", , "brichson@ad.unc.edu", role = c("aut", "cre"))
+Description: This package contains two methods for doing variable selection with an ordinal outcome. The first method is a LASSO-penalized proportional odds regression model. The second is a random forest machine learning algorithm.
 License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
     license
 Encoding: UTF-8
