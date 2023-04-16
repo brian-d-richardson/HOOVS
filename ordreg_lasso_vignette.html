@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Ben Bodek, Brian Chen, Forrest Hurley, Brian Richardson, Emmanuel Rockwell" />
+
+<meta name="date" content="2022-04-28" />
+
+<title>Ordinal Regression Lasso</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Ordinal Regression Lasso</h1>
+<h4 class="author">Ben Bodek, Brian Chen, Forrest Hurley, Brian
+Richardson, Emmanuel Rockwell</h4>
+<h4 class="date">04/28/22</h4>
+
+
+
+<div id="load-all-packages-and-set-up" class="section level1">
+<h1>Load all packages and set up</h1>
+<p>If the packages is missing, the following code will install and load
+all the packages.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>(<span class="cf">if</span> (<span class="sc">!</span><span class="fu">require</span>(dplyr)) {<span class="fu">install.packages</span>(<span class="st">&quot;dplyr&quot;</span>)})</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning: package &#39;dplyr&#39; was built under R version 4.2.3</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>(<span class="cf">if</span> (<span class="sc">!</span><span class="fu">require</span>(tidyr)) {<span class="fu">install.packages</span>(<span class="st">&quot;tidyr&quot;</span>)})</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>(<span class="cf">if</span> (<span class="sc">!</span><span class="fu">require</span>(ggplot2)) {<span class="fu">install.packages</span>(<span class="st">&quot;ggplot2&quot;</span>)})</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>(<span class="cf">if</span> (<span class="sc">!</span><span class="fu">require</span>(ordinalNet)) {<span class="fu">install.packages</span>(<span class="st">&quot;ordinalNet&quot;</span>)})</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning: package &#39;ordinalNet&#39; was built under R version 4.2.3</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>(<span class="cf">if</span> (<span class="sc">!</span><span class="fu">require</span>(foreign)) {<span class="fu">install.packages</span>(<span class="st">&quot;foreign&quot;</span>)})</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>(<span class="cf">if</span> (<span class="sc">!</span><span class="fu">require</span>(devtools)) {<span class="fu">install.packages</span>(<span class="st">&quot;devtools&quot;</span>)})</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>(<span class="cf">if</span> (<span class="sc">!</span><span class="fu">require</span>(tictoc)) {<span class="fu">install.packages</span>(<span class="st">&quot;tictoc&quot;</span>)})</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning: package &#39;tictoc&#39; was built under R version 4.2.3</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">load_all</span>()</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; ℹ Loading bios-735-project</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co">#For reproducibility</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span></code></pre></div>
+</div>
+<div id="theoretical-background" class="section level1">
+<h1>Theoretical Background</h1>
+<p>We begin with a theoretical introduction of the ordinal regression
+model and how our package calculates the estimates and updates at each
+step.</p>
+<div id="ordinal-regression-model" class="section level2">
+<h2>Ordinal Regression Model:</h2>
+<p>Suppose that, for observation <span class="math inline">\(i = 1,
+\dots, n\)</span>, the ordinal outcome <span class="math inline">\(Y_i\)</span> given the covariate vector <span class="math inline">\(\pmb{x}_i\)</span> has a multinomial distribution
+with <span class="math inline">\(J\)</span> outcome categories and
+probabilities of success <span class="math inline">\(\pi_1(\pmb{x}_i),
+\dots, \pi_J(\pmb{x}_i)\)</span>. That is,</p>
+<p><span class="math display">\[Y_i | \pmb{x}_i \sim \text{multinomial}
+\{ 1; \pi_1(\pmb{x}_i), \dots, \pi_J(\pmb{x}_i) \}.\]</span></p>
+<p>The cumulative probability for subject <span class="math inline">\(i\)</span> and ordinal outcome category <span class="math inline">\(j\)</span> is <span class="math inline">\(P(Y_i
+\leq j | \pmb{x}_i) = \sum_{k=1}^j \pi_k(\pmb{x}_i)\)</span>. Note that
+by definition <span class="math inline">\(P(Y_i \leq J | \pmb{x}_i) =
+1\)</span>.</p>
+<p>The following proportional odds model relates the cumulative
+probability for subject <span class="math inline">\(i\)</span> and
+ordinal outcome category <span class="math inline">\(j\)</span> to the
+covariates <span class="math inline">\(\pmb{x}_i\)</span> via the
+parameters <span class="math inline">\(\pmb{\alpha} = (\alpha_1, \dots,
+\alpha_{J-1})^T\)</span> and <span class="math inline">\(\pmb{\beta} =
+(\beta_1, \dots, \beta_p)^T\)</span> with a logit link function.</p>
+<p><span class="math display">\[ \text{logit}\{ P(Y_i \leq j |
+\pmb{x}_i) \} = \alpha_j + \pmb{x}_i^T \pmb{\beta}. \]</span></p>
+<p>In this model, <span class="math inline">\(\alpha_1, \dots,
+\alpha_{J-1}\)</span> are outcome category-specific intercepts for the
+first <span class="math inline">\(J-1\)</span> ordinal outcome
+categories and <span class="math inline">\(\beta_1, \dots,
+\beta_p\)</span> are the slopes corresponding to the <span class="math inline">\(p\)</span> covariates. Since the cumulative
+probabilities must be nondecreasing in <span class="math inline">\(j\)</span>, i.e., is <span class="math inline">\(P(Y_i \leq j | \pmb{x}_i) &lt; P(Y_i \leq j+1 |
+\pmb{x}_i)\)</span>, we require that <span class="math inline">\(\alpha_1 &lt; \dots &lt;
+\alpha_{J-1}\)</span>.</p>
+</div>
+<div id="estimation" class="section level2">
+<h2>Estimation</h2>
+<p>The likelihood function for the ordinal regression model is</p>
+<p><span class="math display">\[ L_n(\pmb{\alpha}, \pmb{\beta}) =
+\prod_{i=1}^n \prod_{j=1}^J \left\{ \text{logit}^{-1}(\alpha_j +
+\pmb{x}_i^T\pmb{\beta}) - \text{logit}^{-1}(\alpha_{j-1} +
+\pmb{x}_i^T\pmb{\beta} )   \right\} ^ {_(y_i = j)}. \]</span></p>
+<p>Let <span class="math inline">\(l(\pmb{\alpha}, \pmb{\beta}) =
+\frac{-1}{n} \log L(\pmb{\alpha}, \pmb{\beta})\)</span> be the
+standardized log-likelihood.</p>
+<p>The LASSO-penalized ordinal regression model is fit by minimizing the
+following objective function with respect to <span class="math inline">\(\pmb{\alpha}\)</span> and <span class="math inline">\(\pmb{\beta}\)</span>.</p>
+<p><span class="math display">\[ f(\pmb{\alpha}, \pmb{\beta}) =
+l(\pmb{\alpha}, \pmb{\beta}) + \lambda\sum_{j=1}^p|\beta_j|.
+\]</span></p>
+</div>
+<div id="proximal-gradient-descent-algorithm" class="section level2">
+<h2>Proximal Gradient Descent Algorithm</h2>
+<p>The objective function can be minimized using a proximal gradient
+descent (PGD) algorithm.</p>
+<p>Fix the following initial parameters for the PGD algorithm: <span class="math inline">\(m &gt; 0\)</span> (the initial step size), <span class="math inline">\(a \in (0, 1)\)</span> (the step size decrement
+value), and <span class="math inline">\(\epsilon &gt; 0\)</span> (the
+convergence criterion).</p>
+<p>The proximal projection operator for the LASSO penalty (applied to
+<span class="math inline">\(\pmb{\beta}\)</span> but not to <span class="math inline">\(\pmb{\alpha}\)</span>) is</p>
+<p><span class="math display">\[ \text{prox}_{\lambda m}(\pmb{w},
+\pmb{z}) = \text{argmin}_{\pmb{\alpha}, \pmb{\beta}} \frac{1}{2m}
+\left(||\pmb{w} - \pmb{\alpha} ||_2^2 + ||\pmb{z} - \pmb{\beta} ||_2^2
+\right) + \lambda\sum_{j=1}^p|\beta_j| = \left\{
+\pmb{w},  \text{sign}(\pmb{z})(\pmb{z} - m \lambda)_+ \right\}
+\]</span></p>
+<p>Given current estimates <span class="math inline">\(\pmb{\theta}^{(k)} = (\pmb{\alpha}^{(k)},
+\pmb{\beta}^{(k)})^T\)</span>, search for updated estimates <span class="math inline">\(\pmb{\theta}^{(k+1)}\)</span> by following the
+steps:</p>
+<ol style="list-style-type: decimal">
+<li><p>propose a candidate update <span class="math inline">\(\pmb{\theta} = \text{prox}_{\lambda
+m}\left\{\pmb{\theta}^{(k)} - \frac{1}{m} \nabla
+l(\pmb{\theta}^{(k)})\right\}\)</span>,</p></li>
+<li><p>if the condition <span class="math inline">\(l(\pmb{\theta}) \leq
+l(\pmb{\theta}^{(k)}) + \nabla l(\pmb{\theta}^{(k)})^T(\pmb{\theta} -
+\pmb{\theta}^{(k)}) + \frac{1}{2m} (\pmb{\theta} - \pmb{\theta}^{(k)})^T
+(\pmb{\theta} - \pmb{\theta}^{(k)})\)</span> is met, then make the the
+update <span class="math inline">\(\pmb{\theta}^{(k+1)} =
+\pmb{\theta}\)</span>,</p></li>
+<li><p>else decrement the step size <span class="math inline">\(m =
+am\)</span> and returning to step 2.</p></li>
+</ol>
+<p>Continue updating <span class="math inline">\(\pmb{\theta}^{(k)}\)</span> until convergence,
+i.e., until <span class="math inline">\(\left|\frac{f(\pmb{\theta}^{(k+1)}) -
+f(\pmb{\theta}^{(k)})}{f(\pmb{\theta}^{(k)})}\right| &lt;
+\epsilon\)</span>.</p>
+<p>A technical note is that the <span class="math inline">\(\pmb{\alpha}\)</span> parameters are constrained
+by <span class="math inline">\(\alpha_1 &lt; \dots &lt;
+\alpha_{J-1}\)</span>. We can reparametrize the model with <span class="math inline">\(\pmb{\zeta} = (\zeta_1, \dots,
+\zeta_{J-1})^T\)</span>, where <span class="math inline">\(\zeta_1 =
+\alpha_1\)</span> and <span class="math inline">\(\zeta_j =
+\log(\alpha_j - \alpha_{j-1})\)</span> for <span class="math inline">\(j
+= 2, \dots, J-1\)</span>. Then <span class="math inline">\(\pmb{\zeta}
+\in \mathbb{R}^{J-1}\)</span> have no constraints. So we can follow the
+above procedure to minimize the above objective function with respect to
+<span class="math inline">\(\pmb{\zeta}\)</span> and <span class="math inline">\(\pmb{\beta}\)</span>, then back-transform to
+obtain estimates for <span class="math inline">\(\pmb{\alpha}\)</span>.</p>
+</div>
+</div>
+<div id="implementation-with-our-package" class="section level1">
+<h1>Implementation with our Package</h1>
+<div id="data-generation" class="section level2">
+<h2>Data Generation</h2>
+<p>Our package allows for the user to simulate their own data with the
+<code>simulate.data()</code> function. For <span class="math inline">\(n\)</span> subjects, we generate <span class="math inline">\(p\)</span> covariates from independent standard
+normal distributions<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>. Given true parameters <span class="math inline">\(\pmb{\alpha}_0\)</span> and <span class="math inline">\(\pmb{\beta}_0\)</span>, we compute the multinomial
+probabilities for the outcome for each individual and simulate <span class="math inline">\(y_i\)</span> accordingly.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># sample size</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">1000</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># number of covariates</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> <span class="dv">50</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co"># number of categories for ordinal outcome</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>J <span class="ot">&lt;-</span> <span class="dv">4</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co"># grid of lambdas</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>lambdas <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="fl">0.2</span>, <span class="fl">0.02</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co"># set population parameters</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>alpha <span class="ot">&lt;-</span> <span class="fu">seq</span>(.<span class="dv">5</span>, <span class="dv">4</span>, <span class="at">length =</span> J <span class="sc">-</span> <span class="dv">1</span>) <span class="co"># category-specific intercepts</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>beta <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>, p)                     <span class="co"># slope parameters</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>beta[<span class="dv">1</span><span class="sc">:</span> <span class="fu">floor</span>(p <span class="sc">/</span> <span class="dv">2</span>)] <span class="ot">&lt;-</span> <span class="dv">1</span>            <span class="co"># half of the betas are 0, other half are 1</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co"># simulate data according to the above parameters</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">simulate.data</span>(</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">n =</span> <span class="dv">1000</span>,</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">alpha =</span> alpha,</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">beta =</span> beta)</span></code></pre></div>
+<p>For this example, we simulated data with <span class="math inline">\(n\)</span> = 1000 observations, <span class="math inline">\(p\)</span> = 50 covariates, <span class="math inline">\(J\)</span> = 4 ordinal outcome categories, and
+true parameter values of <span class="math inline">\(\pmb{\alpha}_0\)</span> = (0.5, 2.25, 4) and <span class="math inline">\(\pmb{\beta}_0\)</span> = (1, 1, 1, 1, 1, 1, 1, 1,
+1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0). Note that this
+implies the first half of the covariates are truly associated with the
+outcome and the last half are not. The first 10 rows and 10 columns of
+the data set are shown below.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>dat[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>] <span class="sc">%&gt;%</span> </span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate_if</span>(<span class="at">.predicate =</span> <span class="cf">function</span>(x) <span class="fu">is.numeric</span>(x),</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>            <span class="at">.funs =</span> <span class="cf">function</span>(x) <span class="fu">round</span>(x, <span class="at">digits =</span> <span class="dv">2</span>))</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    y    X1    X2    X3    X4    X5    X6    X7    X8    X9</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1  3 -0.63  1.13 -0.89  0.74 -1.13 -1.52 -0.62 -1.33  0.26</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2  3  0.18  1.11 -1.92  0.39  0.76  0.63 -1.11  0.95 -0.83</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3  3 -0.84 -0.87  1.62  1.30  0.57 -1.68 -2.17  0.86 -1.46</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4  2  1.60  0.21  0.52 -0.80 -1.35  1.18 -0.03  1.06  1.68</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5  4  0.33  0.07 -0.06 -1.60 -2.03  1.12 -0.26 -0.35 -1.54</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6  1 -0.82 -1.66  0.70  0.93  0.59 -1.24  0.53 -0.13 -0.19</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 7  3  0.49  0.81  0.05  1.81 -1.41 -1.23 -0.56  0.76  1.02</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8  1  0.74 -1.91 -1.31 -0.06  1.61  0.60  1.61 -0.49  0.55</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9  1  0.58 -1.25 -2.12  1.89  1.84  0.30  0.56  1.11  0.76</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10 1 -0.31  1.00 -0.21  1.58  1.37 -0.11  0.19  1.46 -0.42</span></span></code></pre></div>
+</div>
+<div id="run-ordinal-regression" class="section level2">
+<h2>Run ordinal Regression</h2>
+<p>Now run our version of a LASSO-penalized ordinal regression function
+on the simulated data for various values of <span class="math inline">\(\lambda\)</span>: 0, 0.02, 0.04, 0.06, 0.08, 0.1,
+0.12, 0.14, 0.16, 0.18, 0.2.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co"># test our LASSO-penalized ordinal regression function</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">tic</span>(<span class="st">&quot;our ordreg.lasso() function&quot;</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>res.ordreg <span class="ot">&lt;-</span> <span class="fu">ordreg.lasso</span>(</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> y <span class="sc">~</span> .,</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> dat,</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  lambdas </span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="fu">toc</span>()</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; our ordreg.lasso() function: 3.15 sec elapsed</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>coef.ordreg <span class="ot">&lt;-</span> <span class="fu">cbind</span>(res.ordreg<span class="sc">$</span>alpha, res.ordreg<span class="sc">$</span>beta)</span></code></pre></div>
+</div>
+<div id="comparison-to-existing-method" class="section level2">
+<h2>Comparison to existing method</h2>
+<p>We can compare our model with an existing function
+<code>ordinalNet::ordinalNet()</code> and fit the same models with the
+same <span class="math inline">\(\lambda\)</span> values.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># compare with ordinalNet results</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">tic</span>(<span class="st">&quot;ordinalNet() function&quot;</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>res.ordnet <span class="ot">&lt;-</span> ordinalNet<span class="sc">::</span><span class="fu">ordinalNet</span>(</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> <span class="fu">as.matrix</span>(dat[, <span class="sc">-</span><span class="dv">1</span>]),</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">y =</span> dat[, <span class="dv">1</span>],</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">alpha =</span> <span class="dv">1</span>, <span class="co"># alpha = 1 corresponds to LASSO</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambdaVals =</span> lambdas,</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">link =</span> <span class="st">&quot;logit&quot;</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> <span class="st">&quot;cumulative&quot;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="fu">toc</span>()</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; ordinalNet() function: 1.95 sec elapsed</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="co"># need to reverse the order of rows to match output</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>coef.ordnet <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(res.ordnet<span class="sc">$</span>coefs)[<span class="fu">rev</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(lambdas)),]</span></code></pre></div>
+<p>Plotting the estimates from each method against, we see that all the
+parameters do not deviate far from the <span class="math inline">\(45^{\circ}\)</span> line.</p>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<p>We can now look at how the parameter estimates from our funciton
+change as the penalty parameter <span class="math inline">\(\lambda\)</span> changes</p>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<p>Note in the above plot that the <span class="math inline">\(\pmb{\alpha}\)</span> estimates do not shrink all
+the way to 0 since they are not penalized in the LASSO model. On the
+other hand, the <span class="math inline">\(\pmb{\beta}\)</span>
+estimates do shrink to 0 as <span class="math inline">\(\lambda\)</span>
+increases. Recall that the data were simulated according to a model
+where half of the <span class="math inline">\(\pmb{\beta}\)</span>
+values are truly 0 and the other half are truly 1. It is clear in the
+above plot which covariates are truly not associated with the outcome
+based on how fast their corresponding parameter estimates shrink to
+0.</p>
+</div>
+</div>
+<div class="footnotes footnotes-end-of-document">
+<hr />
+<ol>
+<li id="fn1"><p>Our current version can only handle continuous
+covariates, and categorical varaibles must be created into dummy
+variables by hand.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,231 @@
+---
+title: "Ordinal Regression Lasso"
+author: "Ben Bodek, Brian Chen, Forrest Hurley, Brian Richardson, Emmanuel Rockwell"
+date: "04/28/22"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Load all packages and set up
+
+If the packages is missing, the following code will install and load all the packages.
+
+```{r load}
+
+suppressPackageStartupMessages(if (!require(dplyr)) {install.packages("dplyr")})
+suppressPackageStartupMessages(if (!require(tidyr)) {install.packages("tidyr")})
+suppressPackageStartupMessages(if (!require(ggplot2)) {install.packages("ggplot2")})
+suppressPackageStartupMessages(if (!require(ordinalNet)) {install.packages("ordinalNet")})
+suppressPackageStartupMessages(if (!require(foreign)) {install.packages("foreign")})
+suppressPackageStartupMessages(if (!require(devtools)) {install.packages("devtools")})
+suppressPackageStartupMessages(if (!require(tictoc)) {install.packages("tictoc")})
+load_all()
+
+#For reproducibility
+set.seed(1)
+
+```
+# Theoretical Background
+
+We begin with a theoretical introduction of the ordinal regression model and how our package calculates the estimates and updates at each step. 
+
+## Ordinal Regression Model:
+
+Suppose that, for observation $i = 1, \dots, n$, the ordinal outcome $Y_i$ given the covariate vector $\pmb{x}_i$ has a multinomial distribution with $J$ outcome categories and probabilities of success $\pi_1(\pmb{x}_i), \dots, \pi_J(\pmb{x}_i)$. That is,
+
+$$Y_i | \pmb{x}_i \sim \text{multinomial} \{ 1; \pi_1(\pmb{x}_i), \dots, \pi_J(\pmb{x}_i) \}.$$
+
+The cumulative probability for subject $i$ and ordinal outcome category $j$ is $P(Y_i \leq j | \pmb{x}_i) = \sum_{k=1}^j \pi_k(\pmb{x}_i)$. Note that by definition $P(Y_i \leq J | \pmb{x}_i) = 1$.
+
+The following proportional odds model relates the cumulative probability for subject $i$ and ordinal outcome category $j$ to the covariates $\pmb{x}_i$ via the parameters $\pmb{\alpha} = (\alpha_1, \dots, \alpha_{J-1})^T$ and $\pmb{\beta} = (\beta_1, \dots, \beta_p)^T$ with a logit link function.
+
+$$ \text{logit}\{ P(Y_i \leq j | \pmb{x}_i) \} = \alpha_j + \pmb{x}_i^T \pmb{\beta}. $$
+
+In this model, $\alpha_1, \dots, \alpha_{J-1}$ are outcome category-specific intercepts for the first $J-1$ ordinal outcome categories and $\beta_1, \dots, \beta_p$ are the slopes corresponding to the $p$ covariates. Since the cumulative probabilities must be nondecreasing in $j$, i.e., is $P(Y_i \leq j | \pmb{x}_i) < P(Y_i \leq j+1 | \pmb{x}_i)$, we require that $\alpha_1 < \dots < \alpha_{J-1}$.
+
+## Estimation
+
+The likelihood function for the ordinal regression model is
+
+$$ L_n(\pmb{\alpha}, \pmb{\beta}) = \prod_{i=1}^n \prod_{j=1}^J \left\{ \text{logit}^{-1}(\alpha_j + \pmb{x}_i^T\pmb{\beta}) - \text{logit}^{-1}(\alpha_{j-1} + \pmb{x}_i^T\pmb{\beta} )   \right\} ^ {_(y_i = j)}. $$
+
+Let $l(\pmb{\alpha}, \pmb{\beta}) = \frac{-1}{n} \log L(\pmb{\alpha}, \pmb{\beta})$ be the standardized log-likelihood.
+
+The LASSO-penalized ordinal regression model is fit by minimizing the following objective function with respect to $\pmb{\alpha}$ and $\pmb{\beta}$.
+
+$$ f(\pmb{\alpha}, \pmb{\beta}) = l(\pmb{\alpha}, \pmb{\beta}) + \lambda\sum_{j=1}^p|\beta_j|. $$
+
+## Proximal Gradient Descent Algorithm
+
+The objective function can be minimized using a proximal gradient descent (PGD) algorithm.
+
+Fix the following initial parameters for the PGD algorithm: $m > 0$ (the initial step size), $a \in (0, 1)$ (the step size decrement value), and $\epsilon > 0$ (the convergence criterion).
+
+The proximal projection operator for the LASSO penalty (applied to $\pmb{\beta}$ but not to $\pmb{\alpha}$) is
+
+$$ \text{prox}_{\lambda m}(\pmb{w}, \pmb{z}) = \text{argmin}_{\pmb{\alpha}, \pmb{\beta}} \frac{1}{2m} \left(||\pmb{w} - \pmb{\alpha} ||_2^2 + ||\pmb{z} - \pmb{\beta} ||_2^2 \right) + \lambda\sum_{j=1}^p|\beta_j| = \left\{ \pmb{w},  \text{sign}(\pmb{z})(\pmb{z} - m \lambda)_+ \right\} $$
+
+Given current estimates $\pmb{\theta}^{(k)} = (\pmb{\alpha}^{(k)}, \pmb{\beta}^{(k)})^T$, search for updated estimates $\pmb{\theta}^{(k+1)}$ by following the steps:
+
+1)  propose a candidate update $\pmb{\theta} = \text{prox}_{\lambda m}\left\{\pmb{\theta}^{(k)} - \frac{1}{m} \nabla l(\pmb{\theta}^{(k)})\right\}$,
+
+2)  if the condition $l(\pmb{\theta}) \leq l(\pmb{\theta}^{(k)}) + \nabla l(\pmb{\theta}^{(k)})^T(\pmb{\theta} - \pmb{\theta}^{(k)}) + \frac{1}{2m} (\pmb{\theta} - \pmb{\theta}^{(k)})^T (\pmb{\theta} - \pmb{\theta}^{(k)})$ is met, then make the the update $\pmb{\theta}^{(k+1)} = \pmb{\theta}$,
+
+3)  else decrement the step size $m = am$ and returning to step 2.
+
+Continue updating $\pmb{\theta}^{(k)}$ until convergence, i.e., until $\left|\frac{f(\pmb{\theta}^{(k+1)}) - f(\pmb{\theta}^{(k)})}{f(\pmb{\theta}^{(k)})}\right| < \epsilon$.
+
+A technical note is that the $\pmb{\alpha}$ parameters are constrained by $\alpha_1 < \dots < \alpha_{J-1}$. We can reparametrize the model with $\pmb{\zeta} = (\zeta_1, \dots, \zeta_{J-1})^T$, where $\zeta_1 = \alpha_1$ and $\zeta_j = \log(\alpha_j - \alpha_{j-1})$ for $j = 2, \dots, J-1$. Then $\pmb{\zeta} \in \mathbb{R}^{J-1}$ have no constraints. So we can follow the above procedure to minimize the above objective function with respect to $\pmb{\zeta}$ and $\pmb{\beta}$, then back-transform to obtain estimates for $\pmb{\alpha}$.
+
+
+
+# Implementation with our Package
+
+## Data Generation
+
+Our package allows for the user to simulate their own data with the `simulate.data()` function. For $n$ subjects, we generate $p$ covariates from independent standard normal distributions^[Our current version can only handle continuous covariates, and categorical varaibles must be created into dummy variables by hand.]. Given true parameters $\pmb{\alpha}_0$ and $\pmb{\beta}_0$, we compute the multinomial probabilities for the outcome for each individual and simulate $y_i$ accordingly.
+
+```{r}
+
+# sample size
+n <- 1000
+
+# number of covariates
+p <- 50
+
+# number of categories for ordinal outcome
+J <- 4
+
+# grid of lambdas
+lambdas <- seq(0, 0.2, 0.02)
+
+# set population parameters
+alpha <- seq(.5, 4, length = J - 1) # category-specific intercepts
+beta <- rep(0, p)                     # slope parameters
+beta[1: floor(p / 2)] <- 1            # half of the betas are 0, other half are 1
+
+# simulate data according to the above parameters
+dat <- simulate.data(
+  n = 1000,
+  alpha = alpha,
+  beta = beta)
+
+```
+
+For this example, we simulated data with $n$ = `r n` observations, $p$ = `r p` covariates, $J$ = `r J` ordinal outcome categories, and true parameter values of $\pmb{\alpha}_0$ = (`r alpha`) and $\pmb{\beta}_0$ = (`r beta`). Note that this implies the first half of the covariates are truly associated with the outcome and the last half are not. The first 10 rows and 10 columns of the data set are shown below.
+
+```{r}
+
+dat[1:10, 1:10] %>% 
+  mutate_if(.predicate = function(x) is.numeric(x),
+            .funs = function(x) round(x, digits = 2))
+```
+
+## Run ordinal Regression
+
+Now run our version of a LASSO-penalized ordinal regression function on the simulated data for various values of $\lambda$: `r lambdas`.
+
+```{r}
+
+# test our LASSO-penalized ordinal regression function
+tic("our ordreg.lasso() function")
+res.ordreg <- ordreg.lasso(
+  formula = y ~ .,
+  data = dat,
+  lambdas 
+)
+toc()
+
+coef.ordreg <- cbind(res.ordreg$alpha, res.ordreg$beta)
+
+```
+
+## Comparison to existing method
+
+We can compare our model with an existing function `ordinalNet::ordinalNet()` and fit the same models with the same $\lambda$ values.
+
+```{r}
+
+# compare with ordinalNet results
+tic("ordinalNet() function")
+res.ordnet <- ordinalNet::ordinalNet(
+  x = as.matrix(dat[, -1]),
+  y = dat[, 1],
+  alpha = 1, # alpha = 1 corresponds to LASSO
+  lambdaVals = lambdas,
+  link = "logit",
+  family = "cumulative"
+)
+toc()
+
+# need to reverse the order of rows to match output
+coef.ordnet <- as.matrix(res.ordnet$coefs)[rev(1:length(lambdas)),]
+
+```
+
+Plotting the estimates from each method against, we see that all the parameters do not deviate far from the $45^{\circ}$ line.
+
+```{r, echo=FALSE, fig.dim=c(6,4)}
+
+# create data frame with coefficient estimates from both methods
+coef.wide <- rbind(cbind("ordreg", lambdas, coef.ordreg),
+                   cbind("ordnet", lambdas, coef.ordnet)) %>% 
+  as.data.frame() %>% 
+  `colnames<-`(c("method",
+                 "lambda",
+                 paste0("alpha", 1:(J-1)),
+                 paste0("beta", 1:p))) %>% 
+  mutate_at(.vars = vars(-("method")),
+            .funs = as.numeric)
+
+coef.long <- coef.wide %>% 
+  pivot_longer(cols = -c(method, lambda)) %>% 
+  mutate(type = factor(ifelse(grepl("alpha", name, fixed = TRUE),
+                              "alpha", "beta")))
+
+ggplot(NULL,
+       aes(x = coef.long$value[coef.long$method == "ordnet"],
+           y = coef.long$value[coef.long$method == "ordreg"])) +
+  geom_point(size = 3,
+             shape = 1) +
+  geom_abline(color = "blue",
+              linetype = "dashed") +
+  labs(x = "Estimates from ordinalNet Function",
+       y = "Estimates from ordreg_lasso Function") +
+  ggtitle("Comparison of LASSO-Penalized Ordinal Regression Methods") +
+  theme_bw()
+
+
+```
+
+
+We can now look at how the parameter estimates from our funciton change as the penalty parameter $\lambda$ changes
+
+```{r, echo=FALSE, fig.dim=c(6,4)}
+
+ggplot(data = filter(coef.long, method == "ordreg"),
+       aes(x = lambda,
+           y = value,
+           group = name,
+           color = type)) +
+  geom_line() +
+  labs(x = "Lambda",
+       y = "LASSO-Penalized Estimate",
+       color = "Parameter\nType") +
+  ggtitle("LASSO-Estimates vs Penalization Parameter Lambda") +
+  theme_bw()
+
+```
+
+Note in the above plot that the $\pmb{\alpha}$ estimates do not shrink all the way to 0 since they are not penalized in the LASSO model. On the other hand, the $\pmb{\beta}$ estimates do shrink to 0 as $\lambda$ increases. Recall that the data were simulated according to a model where half of the $\pmb{\beta}$ values are truly 0 and the other half are truly 1. It is clear in the above plot which covariates are truly not associated with the outcome based on how fast their corresponding parameter estimates shrink to 0.
+
