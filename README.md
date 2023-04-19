@@ -77,7 +77,7 @@ In this model, $\alpha_1, \dots, \alpha_{J-1}$ are outcome
 category-specific intercepts for the first $J-1$ ordinal outcome
 categories and $\beta_1, \dots, \beta_p$ are the slopes corresponding to
 the $p$ covariates. Since the cumulative probabilities must be
-nondecreasing in $j$, i.e., is
+increasing in $j$, i.e.,
 $P(Y_i \leq j | \pmb{x}_i) < P(Y_i \leq j+1 | \pmb{x}_i)$, we require
 that $\alpha_1 < \dots < \alpha_{J-1}$.
 
@@ -215,7 +215,7 @@ res.ordreg <- ordreg.lasso(
   lambdas 
 )
 toc()
-#> HOOVS ordreg.lasso() function: 5.83 sec elapsed
+#> HOOVS ordreg.lasso() function: 11.87 sec elapsed
 
 coef.ordreg <- cbind(res.ordreg$alpha, res.ordreg$beta)
 ```
