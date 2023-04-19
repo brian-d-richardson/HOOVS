@@ -156,7 +156,7 @@ ordreg.loglik.d <- function(y, x, zeta, beta, alpha = NULL) {
 
       p_ij <- 1 - inv.logit(alpha[y[i] - 1] + eta[i])
 
-      psi_ij_1 <- d.inv.logit(alpha[y[i] - 1] + eta[i])
+      psi_ij_1 <- inv.logit.d(alpha[y[i] - 1] + eta[i])
 
       g.alpha[i, y[i] - 1] <- - psi_ij_1 / p_ij
 
@@ -166,7 +166,7 @@ ordreg.loglik.d <- function(y, x, zeta, beta, alpha = NULL) {
 
       p_ij <- inv.logit(alpha[y[i]] + eta[i])
 
-      psi_ij <- d.inv.logit(alpha[y[i]] + eta[i])
+      psi_ij <- inv.logit.d(alpha[y[i]] + eta[i])
 
       g.alpha[i, y[i]] <- psi_ij / p_ij
 
@@ -177,8 +177,8 @@ ordreg.loglik.d <- function(y, x, zeta, beta, alpha = NULL) {
       p_ij <- inv.logit(alpha[y[i]] + eta[i]) -
               inv.logit(alpha[y[i] - 1] + eta[i])
 
-      psi_ij <- d.inv.logit(alpha[y[i]] + eta[i])
-      psi_ij_1 <- d.inv.logit(alpha[y[i] - 1] + eta[i])
+      psi_ij <- inv.logit.d(alpha[y[i]] + eta[i])
+      psi_ij_1 <- inv.logit.d(alpha[y[i] - 1] + eta[i])
 
       g.alpha[i, y[i]] <- psi_ij / p_ij
       g.alpha[i, y[i] - 1] <- - psi_ij_1 / p_ij
