@@ -29,7 +29,7 @@ devtools::install_github("brian-d-richardson/HOOVS")
 library(HOOVS)
 ```
 
-Other packages used in this README can be loaded in the following chunck.
+Other packages used in this README can be loaded in the following chunk.
 
 ```{r load, warning = F}
 
@@ -187,6 +187,37 @@ ggplot(data = coef.data,
 ```
 
 Note in the above plot that the $\pmb{\alpha}$ estimates do not shrink all the way to 0 since they are not penalized in the LASSO model. On the other hand, the $\pmb{\beta}$ estimates do shrink to 0 as $\lambda$ increases. Recall that the data were simulated according to a model where half of the $\pmb{\beta}$ values are truly 0 and the other half are truly 1. It is clear in the above plot which covariates are truly not associated with the outcome based on how fast their corresponding parameter estimates shrink to 0.
+
+Suppose we have identified a subset of relevant predictors and want to perform inference or hypothesis testing using an independent test data set. We obtain the asymptotic covariance of the parameter estimates from an ordinal regression model fit with no LASSO penalty by specifying `return.cov = TRUE`. Then the standard errors of the parameter estimates are the square roots of the diagonal entries of the covariance matrix.
+
+```{r}
+
+# simulate test data
+dat <- simulate.data(
+  n = 500,
+  alpha = alpha,
+  beta = beta)
+
+# specify relevant parameters
+# (in practice these would be selected using training data)
+rel.betas.ind <- which(beta != 0)
+
+# fit model with no penalty
+res.ordreg.test <- ordreg.lasso(
+  formula = y ~ .,
+  data = select(dat, c("y", paste0("X", rel.betas.ind))),
+  lambdas = 0,
+  return.cov = T
+)
+
+# covariance matrix
+#res.ordreg.test$cov
+
+# standard error of parameter estimates
+sqrt(diag(res.ordreg.test$cov))
+
+```
+
 
 # Method 2: Random Forest
 

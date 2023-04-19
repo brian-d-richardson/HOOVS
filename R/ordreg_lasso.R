@@ -123,6 +123,9 @@ ordreg.loglik <- function(y, x, zeta, beta, alpha = NULL) {
 #'
 #' @export
 ordreg.loglik.d <- function(y, x, zeta, beta, alpha = NULL) {
+  
+  # number of covariates
+  p <- ncol(x)
 
   # number of observations
   n <- length(y)
@@ -374,7 +377,7 @@ ordreg.lasso <- function(formula, data, lambdas = 0, return.cov = FALSE) {
   if (return.cov) {
     if (!(0 %in% lambdas)) {
       stop("asymptotic covariance is valid only for lambda = 0")
-    } else if (length(lambdas > 1)) {
+    } else if (length(lambdas) > 1) {
       warning("asymptotic covariance is not valid if parameter tuning is done on same data")
     }
   }

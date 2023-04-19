@@ -28,8 +28,7 @@ devtools::install_github("brian-d-richardson/HOOVS")
 library(HOOVS)
 ```
 
-Other packages used in this README can be loaded in the following
-chunck.
+Other packages used in this README can be loaded in the following chunk.
 
 ``` r
 
@@ -215,7 +214,7 @@ res.ordreg <- ordreg.lasso(
   lambdas 
 )
 toc()
-#> HOOVS ordreg.lasso() function: 11.87 sec elapsed
+#> HOOVS ordreg.lasso() function: 5.03 sec elapsed
 
 coef.ordreg <- cbind(res.ordreg$alpha, res.ordreg$beta)
 ```
@@ -233,6 +232,48 @@ where half of the $\pmb{\beta}$ values are truly 0 and the other half
 are truly 1. It is clear in the above plot which covariates are truly
 not associated with the outcome based on how fast their corresponding
 parameter estimates shrink to 0.
+
+Suppose we have identified a subset of relevant predictors and want to
+perform inference or hypothesis testing using an independent test data
+set. We obtain the asymptotic covariance of the parameter estimates from
+an ordinal regression model fit with no LASSO penalty by specifying
+`return.cov = TRUE`. Then the standard errors of the parameter estimates
+are the square roots of the diagonal entries of the covariance matrix.
+
+``` r
+
+# simulate test data
+dat <- simulate.data(
+  n = 500,
+  alpha = alpha,
+  beta = beta)
+
+# specify relevant parameters
+# (in practice these would be selected using training data)
+rel.betas.ind <- which(beta != 0)
+
+# fit model with no penalty
+res.ordreg.test <- ordreg.lasso(
+  formula = y ~ .,
+  data = select(dat, c("y", paste0("X", rel.betas.ind))),
+  lambdas = 0,
+  return.cov = T
+)
+
+# covariance matrix
+#res.ordreg.test$cov
+
+# standard error of parameter estimates
+sqrt(diag(res.ordreg.test$cov))
+#>    alpha1    alpha2    alpha3     beta1     beta2     beta3     beta4     beta5 
+#> 0.1885505 0.2302522 0.3188871 0.1518158 0.1493560 0.1437412 0.1492866 0.1425663 
+#>     beta6     beta7     beta8     beta9    beta10    beta11    beta12    beta13 
+#> 0.1532874 0.1598190 0.1501358 0.1533953 0.1471709 0.1463651 0.1503864 0.1473245 
+#>    beta14    beta15    beta16    beta17    beta18    beta19    beta20    beta21 
+#> 0.1385858 0.1596688 0.1555481 0.1417651 0.1514717 0.1404234 0.1415255 0.1427013 
+#>    beta22    beta23    beta24    beta25 
+#> 0.1532489 0.1518607 0.1467264 0.1558101
+```
 
 # Method 2: Random Forest
 
