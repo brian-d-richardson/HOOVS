@@ -351,6 +351,7 @@ ordreg.prox.grad.desc <- function(y, x, zeta0, beta0, lambda,
 #' @param formula: a symbolic description of the model to be fitted; an object of class `"formula"`
 #' @param data: a data frame containing the variables in the model
 #' @param lambdas: vector of LASSO penalty parameters; a vector of non-negative numbers; default is 0, which corresponds to no penalization
+#' @param return.cov: an indicator for whether asymptotic covariance matrix of parameter estimates should be output; defaults to FALSE
 #'
 #' @return a list with the following elements:
 #' \itemize{
@@ -360,11 +361,24 @@ ordreg.prox.grad.desc <- function(y, x, zeta0, beta0, lambda,
 #' \itme{n.nonzero: number of nonzero parameters for each lambda value; a vector of non-negative integers}
 #' \item{loglik.val: log-likelihood values at convergence (not including the LASSO penalty) for each lambda value; a numeric vector}
 #' \item{bic: Bayesian information critetion value at convergence for each lambda value; a numeric vector}
+#' \item{cov: asymptotic covariance matrix of parameter estimates from unpenalized fit (lambda = 0)}
 #' }
+#' 
+#' @importFrom numDeriv jacobian
 #'
 #' @export
-ordreg.lasso <- function(formula, data, lambdas = 0) {
-
+ordreg.lasso <- function(formula, data, lambdas = 0, return.cov = FALSE) {
+  
+  # if return.cov = TRUE, verify that lambdas includes 0
+  # (the covariance matrix for parameter estimates is specific to lambda = 0)
+  if (return.cov) {
+    if (!(0 %in% lambdas)) {
+      stop("asymptotic covariance is valid only for lambda = 0")
+    } else if (length(lambdas > 1)) {
+      warning("asymptotic covariance is not valid if parameter tuning is done on same data")
+    }
+  }
+  
   # extract ordered factor outcome vector from data
   Y <- data[, all.vars(formula)[1]]
 
@@ -398,6 +412,7 @@ ordreg.lasso <- function(formula, data, lambdas = 0) {
   n.nonzero <- numeric(L)
   loglik.val <- numeric(L)
   bic <- numeric(L)
+  cov <- NULL
 
   # initialize starting values
   zeta0 <- ordreg.alphatozeta(seq(.1, 1, length = J - 1))
@@ -430,12 +445,31 @@ ordreg.lasso <- function(formula, data, lambdas = 0) {
             log(n) * n.nonzero[l]
 
   }
-
+  
+  if (return.cov) {
+    
+    # observed information matrix
+    obs.inf <- numDeriv::jacobian(
+      func = function(theta) {
+        ordreg.loglik.d(y = y, x = x,
+                        alpha = theta[1:(J-1)],
+                        beta = theta[-(1:(J-1))])
+      }, x = c(alpha[which(lambdas == 0), ],
+               beta[which(lambdas == 0), ])
+    )
+    
+    # covariance matrix
+    cov <- solve(-obs.inf)
+    colnames(cov) <- rownames(cov) <- c(paste0("alpha", 1:(J-1)),
+                                        paste0("beta", 1:p))
+  }
+  
   return(list("alpha" = alpha,
               "beta" = beta,
               "n.nonzero" = n.nonzero,
               "loglik.val" = loglik.val,
-              "bic" = bic))
+              "bic" = bic,
+              "cov" = cov))
 }
 
 #' Slow Optimization Procedure

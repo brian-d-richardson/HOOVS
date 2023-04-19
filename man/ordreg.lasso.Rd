@@ -4,7 +4,7 @@
 \alias{ordreg.lasso}
 \title{Ordinal Logistic Regression with LASSO Penalty}
 \usage{
-ordreg.lasso(formula, data, lambdas = 0)
+ordreg.lasso(formula, data, lambdas = 0, return.cov = FALSE)
 }
 \arguments{
 \item{formula:}{a symbolic description of the model to be fitted; an object of class \code{"formula"}}
@@ -12,6 +12,8 @@ ordreg.lasso(formula, data, lambdas = 0)
 \item{data:}{a data frame containing the variables in the model}
 
 \item{lambdas:}{vector of LASSO penalty parameters; a vector of non-negative numbers; default is 0, which corresponds to no penalization}
+
+\item{return.cov:}{an indicator for whether asymptotic covariance matrix of parameter estimates should be output; defaults to FALSE}
 }
 \value{
 a list with the following elements:
@@ -22,6 +24,7 @@ a list with the following elements:
 \itme{n.nonzero: number of nonzero parameters for each lambda value; a vector of non-negative integers}
 \item{loglik.val: log-likelihood values at convergence (not including the LASSO penalty) for each lambda value; a numeric vector}
 \item{bic: Bayesian information critetion value at convergence for each lambda value; a numeric vector}
+\item{cov: asymptotic covariance matrix of parameter estimates from unpenalized fit (lambda = 0)}
 }
 }
 \description{
