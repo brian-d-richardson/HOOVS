@@ -1,5 +1,5 @@
 ---
-title: "Bios 735 Group Project: Group 4"
+title: "HOOVS: High Dimensional Ordinal Outcome Variable Selection"
 author: "Ben Bodek, Brian Chen, Forrest Hurley, Brian Richardson, Emmanuel Rockwell"
 output: github_document
 ---
@@ -13,7 +13,7 @@ knitr::opts_chunk$set(
 
 ## Description
 
-This repository is for a group project for Bios 735 (statistical computing). The goal of the project is to develop two methods to perform variable selection on a high-dimensional data set with an ordinal outcome. The first method is a LASSO-penalized ordinal regression model and the second is a random forest model.
+The `HOOVS` package ("High-Dimensional Ordinal Outcome Variable Selection") is for a group project for Bios 735 (statistical computing). The goal of the project is to develop two methods to perform variable selection on a high-dimensional data set with an ordinal outcome. The first method is a LASSO-penalized ordinal regression model and the second is a random forest model.
 
 ## Installation 
 
