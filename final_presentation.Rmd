@@ -15,6 +15,7 @@ suppressPackageStartupMessages(if (!require(ordinalNet)){install.packages("ordin
 suppressPackageStartupMessages(if (!require(foreign)){install.packages("foreign")})
 suppressPackageStartupMessages(if (!require(devtools)){install.packages("devtools")})
 suppressPackageStartupMessages(if (!require(tictoc)){install.packages("tictoc")})
+suppressPackageStartupMessages(if (!require(psych)){install.packages("psych")})
 load_all()
 
 #For reproducibility
