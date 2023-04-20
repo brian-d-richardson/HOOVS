@@ -114,6 +114,7 @@ for(c in cust.vars){
 
 # function which replaces NA values in a column with a specified value
 # returns the column with replaced NA values
+
 replace_na<-function(col,replacement,df){
   df[is.na(df[,col]),col]<-replacement
   df[,col]
@@ -141,4 +142,4 @@ for(col in l){
 # Write clean dataset to csv file #
 ###################################
 
-write.csv(df.processed,file='processed_data.csv')
+write.csv(df.processed,file='processed_data.csv',row.names = F)
