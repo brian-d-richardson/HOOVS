@@ -16,14 +16,14 @@ suppressPackageStartupMessages(if (!require(foreign)){install.packages("foreign"
 suppressPackageStartupMessages(if (!require(devtools)){install.packages("devtools")})
 suppressPackageStartupMessages(if (!require(tictoc)){install.packages("tictoc")})
 suppressPackageStartupMessages(if (!require(psych)){install.packages("psych")})
+suppressPackageStartupMessages(if (!require(caret)){install.packages("caret")})
 load_all()
 
 #For reproducibility
 set.seed(1)
-
 ```
 
-# Introduciton
+# Introduction
 
 ## Data Description
 
@@ -33,7 +33,7 @@ The dataset we will use for our project is from the Americans' Changing Lives (A
 
 The overarching goal of this project will be evaluating the association of the available demographic, sociographic, and psychographic variables with participants’ self reported life satisfaction. Specifically, we aim to identify factors which are predictive of high or low satisfaction with life. Because life satisfaction is an ordinal variable, with responses ranging from 1. Completely satisfied to 2. Not at all satisfied, our analysis methods must be designed to handle ordinal outcomes to avoid loss of information. Furthermore, the ACL survey is a high dimensional dataset. Therefore, in order to conduct the usual inference with a generalized linear model, we must first reduce this dimensionality.
 
-To achieve the goal of identifying factors associated with life satisfaction, we aim to reduce the dimentionlaity, with two methods: ordinal LASSO regression and Random Forests. 
+To achieve the goal of identifying factors associated with life satisfaction, we aim to reduce the dimentionality, with two methods: ordinal LASSO regression and Random Forests. 
 
 # Methods
 
@@ -234,6 +234,44 @@ Note in the above plot that the $\pmb{\alpha}$ estimates do not shrink all the w
 
 
 ## Real Data Analysis 
+
+```{r}
+# Note that data must be downloaded and processed (instructions in data_processing.R)
+# prior to running this step
+
+# reading in processed data
+acl_df<-read.csv(file="processed_data.csv",header = T)
+head(acl_df)
+```
+
+We start by defining our outcome and covariates. Our outcome of interest is the participants' **Satistfaction with Life**, an ordinal survey response ranging from 1 = "Completely Satisfied" to 5 = "Not at all Satisfied".
+
+The covariates are defined as all other survey questions. 
+
+```{r}
+# set outcome as Life Satisfaction, "B1.SATISFACTION.W.LIFE"
+y<-acl_df$B1.SATISFACTION.W.LIFE
+# create covariate matrix
+x<-subset(acl_df, select = -c(B1.SATISFACTION.W.LIFE,W1.Case.Id))
+```
+
+
+Below is a table of percentage of responses by ordinal category. We can see that most responses
+```{r}
+l<-table(y)/sum(!is.na(y))*100
+barplot(l)
+```
+
+
+# create a training set and holdout set (60% train, 40% holdout)
+# training set to be used for model selection and 
+train.idx <- createDataPartition(y, p=.6, list=FALSE)
+
+
+#flds <- createFolds(y, k = 10, list = TRUE, returnTrain = FALSE)
+```
+
+
 
 ### Ordinal Regression LASSO
 
