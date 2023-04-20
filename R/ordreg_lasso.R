@@ -363,7 +363,7 @@ ordreg.prox.grad.desc <- function(y, x, zeta0, beta0, lambda,
 ordreg.predict <- function(alpha, beta, x) {
   
   # sample size
-  n <- length(y)
+  n <- nrow(x)
   
   # number of outcome categories
   J <- length(alpha) + 1

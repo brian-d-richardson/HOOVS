@@ -40,7 +40,6 @@ suppressPackageStartupMessages(if (!require(ordinalNet)) {install.packages("ordi
 suppressPackageStartupMessages(if (!require(foreign)) {install.packages("foreign")})
 suppressPackageStartupMessages(if (!require(devtools)) {install.packages("devtools")})
 suppressPackageStartupMessages(if (!require(tictoc)) {install.packages("tictoc")})
-load_all()
 
 #For reproducibility
 set.seed(1)
