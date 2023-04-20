@@ -17,7 +17,7 @@ The `HOOVS` package ("High-Dimensional Ordinal Outcome Variable Selection") is f
 
 ## Installation 
 
-Installation of the `bios-735-project` from GitHub requires the [`devtools`](https://www.r-project.org/nosvn/pandoc/devtools.html) package and can be done in the following way. 
+Installation of the `HOOVS` from GitHub requires the [`devtools`](https://www.r-project.org/nosvn/pandoc/devtools.html) package and can be done in the following way. 
 
 ```{r, eval = F}
 # Install the package
@@ -40,6 +40,7 @@ suppressPackageStartupMessages(if (!require(ordinalNet)) {install.packages("ordi
 suppressPackageStartupMessages(if (!require(foreign)) {install.packages("foreign")})
 suppressPackageStartupMessages(if (!require(devtools)) {install.packages("devtools")})
 suppressPackageStartupMessages(if (!require(tictoc)) {install.packages("tictoc")})
+load_all()
 
 #For reproducibility
 set.seed(1)
@@ -113,7 +114,7 @@ p <- 50
 J <- 4
 
 # grid of lambdas
-lambdas <- seq(0, 0.2, 0.02)
+lambdas <- seq(0.2, 0, -0.02)
 
 # set population parameters
 alpha <- seq(.5, 4, length = J - 1) # category-specific intercepts
@@ -186,6 +187,20 @@ ggplot(data = coef.data,
 ```
 
 Note in the above plot that the $\pmb{\alpha}$ estimates do not shrink all the way to 0 since they are not penalized in the LASSO model. On the other hand, the $\pmb{\beta}$ estimates do shrink to 0 as $\lambda$ increases. Recall that the data were simulated according to a model where half of the $\pmb{\beta}$ values are truly 0 and the other half are truly 1. It is clear in the above plot which covariates are truly not associated with the outcome based on how fast their corresponding parameter estimates shrink to 0.
+
+## Assessing Prediction with Weighted Kappa
+
+We can assess the predictive performance of the model with a weighted kappa statistic. The following table gives the weighted kappa values for the models fit using each supplied penalty parameter $\lambda$.
+
+```{r}
+
+data.frame("lambda" = lambdas,
+           "Weighted Kappa" = res.ordreg$kappa)
+
+```
+
+
+## Inference
 
 Suppose we have identified a subset of relevant predictors and want to perform inference or hypothesis testing using an independent test data set. We obtain the asymptotic covariance of the parameter estimates from an ordinal regression model fit with no LASSO penalty by specifying `return.cov = TRUE`. Then the standard errors of the parameter estimates are the square roots of the diagonal entries of the covariance matrix.
 

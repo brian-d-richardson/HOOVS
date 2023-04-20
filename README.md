@@ -14,7 +14,7 @@ second is a random forest model.
 
 ## Installation
 
-Installation of the `bios-735-project` from GitHub requires the
+Installation of the `HOOVS` from GitHub requires the
 [`devtools`](https://www.r-project.org/nosvn/pandoc/devtools.html)
 package and can be done in the following way.
 
@@ -157,7 +157,7 @@ p <- 50
 J <- 4
 
 # grid of lambdas
-lambdas <- seq(0, 0.2, 0.02)
+lambdas <- seq(0.2, 0, -0.02)
 
 # set population parameters
 alpha <- seq(.5, 4, length = J - 1) # category-specific intercepts
@@ -201,8 +201,8 @@ dat[1:10, 1:10] %>%
 ## Fitting Penalized Model
 
 Now run our version of a LASSO-penalized ordinal regression function on
-the simulated data for various values of $\lambda$: 0, 0.02, 0.04, 0.06,
-0.08, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2.
+the simulated data for various values of $\lambda$: 0.2, 0.18, 0.16,
+0.14, 0.12, 0.1, 0.08, 0.06, 0.04, 0.02, 0.
 
 ``` r
 
@@ -211,10 +211,10 @@ tic("HOOVS ordreg.lasso() function")
 res.ordreg <- ordreg.lasso(
   formula = y ~ .,
   data = dat,
-  lambdas 
+  lambdas = lambdas
 )
 toc()
-#> HOOVS ordreg.lasso() function: 5.03 sec elapsed
+#> HOOVS ordreg.lasso() function: 10.03 sec elapsed
 
 coef.ordreg <- cbind(res.ordreg$alpha, res.ordreg$beta)
 ```
@@ -232,6 +232,32 @@ where half of the $\pmb{\beta}$ values are truly 0 and the other half
 are truly 1. It is clear in the above plot which covariates are truly
 not associated with the outcome based on how fast their corresponding
 parameter estimates shrink to 0.
+
+## Assessing Prediction with Weighted Kappa
+
+We can assess the predictive performance of the model with a weighted
+kappa statistic. The following table gives the weighted kappa values for
+the models fit using each supplied penalty parameter $\lambda$.
+
+``` r
+
+data.frame("lambda" = lambdas,
+           "Weighted Kappa" = res.ordreg$kappa)
+#>             lambda Weighted.Kappa
+#> lambda=0.2    0.20     0.00000000
+#> lambda=0.18   0.18     0.00000000
+#> lambda=0.16   0.16     0.00000000
+#> lambda=0.14   0.14     0.00000000
+#> lambda=0.12   0.12     0.00000000
+#> lambda=0.1    0.10     0.00000000
+#> lambda=0.08   0.08     0.02319807
+#> lambda=0.06   0.06     0.44565785
+#> lambda=0.04   0.04     0.72450154
+#> lambda=0.02   0.02     0.83576007
+#> lambda=0      0.00     0.90220833
+```
+
+## Inference
 
 Suppose we have identified a subset of relevant predictors and want to
 perform inference or hypothesis testing using an independent test data
@@ -265,13 +291,13 @@ res.ordreg.test <- ordreg.lasso(
 
 # standard error of parameter estimates
 sqrt(diag(res.ordreg.test$cov))
-#>    alpha1    alpha2    alpha3     beta1     beta2     beta3     beta4     beta5 
+#>    alpha1    alpha2    alpha3        X1        X2        X3        X4        X5 
 #> 0.1885505 0.2302522 0.3188871 0.1518158 0.1493560 0.1437412 0.1492866 0.1425663 
-#>     beta6     beta7     beta8     beta9    beta10    beta11    beta12    beta13 
+#>        X6        X7        X8        X9       X10       X11       X12       X13 
 #> 0.1532874 0.1598190 0.1501358 0.1533953 0.1471709 0.1463651 0.1503864 0.1473245 
-#>    beta14    beta15    beta16    beta17    beta18    beta19    beta20    beta21 
+#>       X14       X15       X16       X17       X18       X19       X20       X21 
 #> 0.1385858 0.1596688 0.1555481 0.1417651 0.1514717 0.1404234 0.1415255 0.1427013 
-#>    beta22    beta23    beta24    beta25 
+#>       X22       X23       X24       X25 
 #> 0.1532489 0.1518607 0.1467264 0.1558101
 ```
 
