@@ -18,15 +18,17 @@ ordreg.lasso(formula, data, lambdas = 0, return.cov = FALSE)
 \value{
 a list with the following elements:
 \itemize{
-\item{lambda: vector of LASSO penalty parameters}
+\item{lambdas: vector of LASSO penalty parameters (sorted in descending order)}
 \item{alpha: matrix of alpha estimates with each row corresponding to a lambda value}
 \item{beta: matrix of beta estimates with each row corresponding to a lambda value}
 \itme{n.nonzero: number of nonzero parameters for each lambda value; a vector of non-negative integers}
 \item{loglik.val: log-likelihood values at convergence (not including the LASSO penalty) for each lambda value; a numeric vector}
 \item{bic: Bayesian information critetion value at convergence for each lambda value; a numeric vector}
+\item{predictions: matrix of predicted y values with each row corresponding to a lambda value}
+\item{kappa: vector of weighted kappa values for each lambda value}
 \item{cov: asymptotic covariance matrix of parameter estimates from unpenalized fit (lambda = 0)}
 }
 }
 \description{
-This function fits LASS)-penalized ordinal regression models over a grid of penalty parameters.
+This function fits LASSO-penalized ordinal regression models over a grid of penalty parameters.
 }
