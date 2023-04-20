@@ -149,7 +149,7 @@ tic("HOOVS ordreg.lasso() function")
 res.ordreg <- ordreg.lasso(
   formula = y ~ .,
   data = dat,
-  lambdas 
+  lambdas = lambdas
 )
 toc()
 
