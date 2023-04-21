@@ -3,6 +3,7 @@ library(tidyverse)
 library(tidyr)
 library(dplyr)
 library(fastDummies)
+library(caret)
 
 #####################
 ## Reading in Data ##
@@ -137,6 +138,13 @@ l<- c("W1.White-Collar=1,0=Other", "W1.Blue-Collar=1,0=Other","C46D:DELT W/DEATH
 for(col in l){
   df.processed[,col]<-replace_na(col,0,df.processed)
 }
+
+###########################################################
+# Fill in remaining NAs (assumed MAR) with knn imputation #
+###########################################################
+
+preProc<-preProcess(df.processed,method="knnImpute")
+df.processed<-predict(preProc,df.processed)
 
 ###################################
 # Write clean dataset to csv file #
