@@ -29,8 +29,6 @@ cols.to.keep<-c('V1','V101','V201','V202','V219','V220','V221','V222','V223','V2
 
 df<-df%>%select(all_of(cols.to.keep))
 
-summary(df[,check])
-
 # read in variable names
 var.names<-attributes(da04690.0001)$names
 # read in variable labels
@@ -139,15 +137,33 @@ for(col in l){
   df.processed[,col]<-replace_na(col,0,df.processed)
 }
 
+##################################
+# Drop rows with missing outcome #
+##################################
+
+# we will use a missing at random assumption to drop rows where our outcome of interest
+# "B1:SATISFACTION W/LIFE" is missing
+
+df.processed<-df.processed[!is.na(df.processed[,"B1:SATISFACTION W/LIFE"]),]
+
+
 ###########################################################
 # Fill in remaining NAs (assumed MAR) with knn imputation #
 ###########################################################
 
 preProc<-preProcess(df.processed,method="knnImpute")
-df.processed<-predict(preProc,df.processed)
+# create dataframe of imputed values
+imp_df<-predict(preProc,df.processed)
+
+# loop through columns and fill in missing values with the knn imputed values
+
+for (c in colnames(df.processed)){
+  df.processed[is.na(df.processed[,c]),c]<-imp_df[is.na(df.processed[,c]),c]
+}
 
 ###################################
 # Write clean dataset to csv file #
 ###################################
 
 write.csv(df.processed,file='processed_data.csv',row.names = F)
+
