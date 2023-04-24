@@ -19,6 +19,7 @@ suppressPackageStartupMessages(if (!require(psych)){install.packages("psych")})
 suppressPackageStartupMessages(if (!require(caret)){install.packages("caret")})
 suppressPackageStartupMessages(if (!require(Boruta)){install.packages("Boruta")})
 suppressPackageStartupMessages(if (!require(ordinalForest)){install.packages("ordinalForest")})
+suppressPackageStartupMessages(if (!require(cvms)){install.packages("cvms")})
 load_all()
 
 #For reproducibility
@@ -288,48 +289,47 @@ fold_indicies <- createFolds(y = data_train$y, k=k)
 ### Ordinal Regression LASSO
 
 ### Random Forest
+
 ```{r}
 
-best_kappa <- rep(NA, k)
-important_vars<-list()
+#Fit Ordinal Random forest
+tic(paste0("Fold #", fold))
+rf<-randomforest.features("y",data_train)
+toc()
+  
+# extract important features
+imp.features<-rf$important.features
 
-for (fold in 1:k){
-  
-  #Fold Training and testing set
-  fold_train <- data_train[-fold_indicies[[fold]],]
-  fold_test <- data_train[fold_indicies[[fold]],]
-  
-  #Fit Ordinal Random forest
-  tic(paste0("Fold #", fold))
-  rf<-randomforest.features("y",fold_train)
-  toc()
-  
-  #Predict using random forest trained on selected features
-  ## extract important features
-  imp.features<-rf$important.features
-  ## train model on selected features
-  model<-ordinalForest::ordfor("y", fold_train[,c("y",imp.features)])
-  ## save predictions on cross validation test set
-  predicted <- predict(model,fold_test[,-1])
-    
-  #Calculate Kappa
-  test_kappa <- cohen.kappa(x = matrix(c(fold_test[,1], predicted[-length(predicted)]),
-                                             ncol = 2, 
-                                             byrow = F))$weighted.kappa
-    
-  
-  
-  #Record Kappa for the fold
-  best_kappa[fold] <- test_kappa
-  #Record list of important variables for the fold
-  important_vars<- append(important_vars, list(imp.features))
-}
+# train model on selected features using training dataset
+model<-ordinalForest::ordfor("y", data_train[,c("y",imp.features)])
 
-data.frame(fold = 1:5,
-           best_kappa)
+## save predictions on cross validation test set
+predicted <- predict(model,data_test[,-1])
+    
+#Calculate Kappa
+test_kappa <- cohen.kappa(x = matrix(c(data_test[,1], predicted[-length(predicted)]),
+                                           ncol = 2, 
+                                           byrow = F))$weighted.kappa
+    
+
+```
+
+
+```{r}
+library(cvms)
+y = data_test[,1]
+y.pred = predicted[-length(predicted)]$ypred
+y.pred <- factor(y.pred, order=T)
 
 
 ```
+
+
+```{r}
+imp.features
+
+```
+
 
 
 # Conclusion
