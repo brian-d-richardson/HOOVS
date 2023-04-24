@@ -17,6 +17,8 @@ suppressPackageStartupMessages(if (!require(devtools)){install.packages("devtool
 suppressPackageStartupMessages(if (!require(tictoc)){install.packages("tictoc")})
 suppressPackageStartupMessages(if (!require(psych)){install.packages("psych")})
 suppressPackageStartupMessages(if (!require(caret)){install.packages("caret")})
+suppressPackageStartupMessages(if (!require(Boruta)){install.packages("Boruta")})
+suppressPackageStartupMessages(if (!require(ordinalForest)){install.packages("ordinalForest")})
 load_all()
 
 #For reproducibility
@@ -240,8 +242,14 @@ Note in the above plot that the $\pmb{\alpha}$ estimates do not shrink all the w
 # prior to running this step
 
 # reading in processed data
-acl_df<-read.csv(file="processed_data.csv",header = T)
-head(acl_df)
+data <- fread('processed_data.csv')
+
+y_factor_key <- data.frame(scaled = sort(unique(data$`B1:SATISFACTION W/LIFE`)),
+                           y = factor(1:5, ordered = T))
+
+data_ordered_y <- merge(y_factor_key, data, by.x = "scaled", by.y = "B1:SATISFACTION W/LIFE") %>% 
+  arrange(`W1 Case Id`) %>%
+  select(-c("scaled", "W1 Case Id"))
 ```
 
 We start by defining our outcome and covariates. Our outcome of interest is the participants' **Satistfaction with Life**, an ordinal survey response ranging from 1 = "Completely Satisfied" to 5 = "Not at all Satisfied".
@@ -250,32 +258,78 @@ The covariates are defined as all other survey questions.
 
 ```{r}
 # set outcome as Life Satisfaction, "B1.SATISFACTION.W.LIFE"
-y<-acl_df$B1.SATISFACTION.W.LIFE
+y<-data$`B1:SATISFACTION W/LIFE`
 # create covariate matrix
-x<-subset(acl_df, select = -c(B1.SATISFACTION.W.LIFE,W1.Case.Id))
+x<-select(data, select = -c("B1:SATISFACTION W/LIFE"))
 ```
 
 
 Below is a table of percentage of responses by ordinal category. We can see that most responses
+fall into category 2, "Very satisfied with life".
+
 ```{r}
 l<-table(y)/sum(!is.na(y))*100
 barplot(l)
 ```
+```{r}
+set.seed(5)
 
+#Create training and testing set
+train_test_i <- createDataPartition(y = data_ordered_y$y, p = 0.6, list = F)
 
-# create a training set and holdout set (60% train, 40% holdout)
-# training set to be used for model selection and 
-train.idx <- createDataPartition(y, p=.6, list=FALSE)
+data_train <- data_ordered_y[train_test_i,]
+data_test <- data_ordered_y[-train_test_i,]
 
-
-#flds <- createFolds(y, k = 10, list = TRUE, returnTrain = FALSE)
+#Within training set, create folds
+k <- 5 #set number of folds 
+fold_indicies <- createFolds(y = data_train$y, k=k)
 ```
-
-
 
 ### Ordinal Regression LASSO
 
 ### Random Forest
+```{r}
+
+best_kappa <- rep(NA, k)
+important_vars<-list()
+
+for (fold in 1:k){
+  
+  #Fold Training and testing set
+  fold_train <- data_train[-fold_indicies[[fold]],]
+  fold_test <- data_train[fold_indicies[[fold]],]
+  
+  #Fit Ordinal Random forest
+  tic(paste0("Fold #", fold))
+  rf<-randomrest.features("y",fold_train)
+  toc()
+  
+  #Predict using random forest trained on selected features
+  ## extract important features
+  imp.features<-rf$important.features
+  ## train model on selected features
+  model<-ordinalForest::ordfor("y", fold_train[,c("y",imp.features)])
+  ## save predictions on cross validation test set
+  predicted <- predict(model,fold_test[,-1])
+    
+  #Calculate Kappa
+  test_kappa <- cohen.kappa(x = matrix(c(fold_test[,1], predicted[-length(predicted)]),
+                                             ncol = 2, 
+                                             byrow = F))$weighted.kappa
+    
+  
+  
+  #Record Kappa for the fold
+  best_kappa[fold] <- test_kappa
+  #Record list of important variables for the fold
+  important_vars<- append(important_vars, list(imp.features))
+}
+
+data.frame(fold = 1:5,
+           best_kappa)
+
+
+```
 
 
 # Conclusion
