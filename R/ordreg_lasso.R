@@ -62,6 +62,7 @@ ordreg.zetatoalpha <- function(zeta) {
 #'
 #' @keywords internal
 ordreg.zetatoalpha.d <- function(zeta) {
+  J <- length(zeta) + 1
   d <- matrix(data = rep(c(1, exp(zeta[-1])), each = J - 1),
                    nrow = J - 1)
   d[upper.tri(d)] <- 0
