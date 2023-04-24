@@ -301,7 +301,7 @@ for (fold in 1:k){
   
   #Fit Ordinal Random forest
   tic(paste0("Fold #", fold))
-  rf<-randomrest.features("y",fold_train)
+  rf<-randomforest.features("y",fold_train)
   toc()
   
   #Predict using random forest trained on selected features
