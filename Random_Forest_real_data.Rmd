@@ -1,0 +1,195 @@
+---
+title: "BIOS 735 Random Forest Variable Selection and Analysis"
+output: html_document
+author: "Ben Bodek, Brian Chen, Forrest Hurley, Brian Richardson, Emmanuel Rockwell"
+date: "04/28/22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+suppressPackageStartupMessages(if (!require(dplyr)){install.packages("dplyr")})
+suppressPackageStartupMessages(if (!require(tidyr)){install.packages("tidyr")})
+suppressPackageStartupMessages(if (!require(ggplot2)){install.packages("ggplot2")})
+suppressPackageStartupMessages(if (!require(ordinalNet)){install.packages("ordinalNet")})
+suppressPackageStartupMessages(if (!require(foreign)){install.packages("foreign")})
+suppressPackageStartupMessages(if (!require(devtools)){install.packages("devtools")})
+suppressPackageStartupMessages(if (!require(tictoc)){install.packages("tictoc")})
+suppressPackageStartupMessages(if (!require(psych)){install.packages("psych")})
+suppressPackageStartupMessages(if (!require(caret)){install.packages("caret")})
+suppressPackageStartupMessages(if (!require(Boruta)){install.packages("Boruta")})
+suppressPackageStartupMessages(if (!require(ordinalForest)){install.packages("ordinalForest")})
+suppressPackageStartupMessages(if (!require(cvms)){install.packages("cvms")})
+suppressPackageStartupMessages(if (!require(ggplot2)){install.packages("ggplot2")})
+suppressPackageStartupMessages(if (!require(data.table)){install.packages("data.table")})
+suppressPackageStartupMessages(if (!require(rlang)){install.packages("rlang")})
+load_all()
+
+#For reproducibility
+set.seed(1)
+```
+
+# Read in and Process Data
+
+```{r}
+# Note that data must be downloaded and processed (instructions in data_processing.R)
+# prior to running this step
+
+# reading in processed data
+data <- fread('processed_data.csv')
+
+y_factor_key <- data.frame(scaled = sort(unique(data$`B1:SATISFACTION W/LIFE`)),
+                           y = factor(1:5, ordered = T))
+
+data_ordered_y <- merge(y_factor_key, data, by.x = "scaled", by.y = "B1:SATISFACTION W/LIFE") %>% 
+  arrange(`W1 Case Id`) %>%
+  select(-c("scaled", "W1 Case Id"))
+```
+
+We start by defining our outcome and covariates. Our outcome of interest is the participants' **Satistfaction with Life**, an ordinal survey response ranging from 1 = "Completely Satisfied" to 5 = "Not at all Satisfied".
+
+The covariates are defined as all other survey questions. 
+
+```{r}
+# set outcome as Life Satisfaction, "B1.SATISFACTION.W.LIFE"
+y<-data$`B1:SATISFACTION W/LIFE`
+# create covariate matrix
+x<-select(data, select = -c("B1:SATISFACTION W/LIFE"))
+```
+
+
+Below is a table of percentage of responses by ordinal category. We can see that most responses
+fall into category 2, "Very satisfied with life".
+
+```{r}
+l<-table(y)/sum(!is.na(y))*100
+barplot(l)
+```
+```{r}
+set.seed(5)
+
+#Create training and testing set
+train_test_i <- createDataPartition(y = data_ordered_y$y, p = 0.6, list = F)
+
+data_train <- data_ordered_y[train_test_i,]
+data_test <- data_ordered_y[-train_test_i,]
+
+#Within training set, create folds
+k <- 5 #set number of folds 
+fold_indicies <- createFolds(y = data_train$y, k=k)
+```
+
+# Variable Selection with Random Forest on training set
+```{r}
+
+#Fit Ordinal Random forest
+tic()
+rf<-randomforest.features("y",data_train)
+toc()
+  
+# extract important features
+imp.features<-rf$important.features
+
+# train model on selected features using training dataset
+model<-ordinalForest::ordfor("y", data_train[,c("y",imp.features)])
+
+```
+
+# Evaluate model using test set
+```{r}
+# save predictions on test set
+predicted <- predict(model,data_test[,-1])
+    
+#Calculate Kappa
+test_kappa <- cohen.kappa(x = matrix(c(data_test[,1], predicted[-length(predicted)]),
+                                           ncol = 2, 
+                                           byrow = F))$weighted.kappa
+# creating and plotting a confusion matrix
+
+# save actual y and predicted y into a tibble
+y = data_test[,1]
+y.pred = predicted[-length(predicted)]$ypred
+y.pred <- factor(y.pred, order=T)
+d_multi<-tibble("target"=y,"prediction"=y.pred)
+
+conf_mat<-confusion_matrix(targets = d_multi$target,
+                             predictions = d_multi$prediction)
+plot_confusion_matrix(conf_mat$`Confusion Matrix`[[1]],add_normalized=F)
+```
+
+# Plotting selected important features for intuition
+
+```{r message=FALSE}
+# function to create plots for important categorical features
+plt_important_cat_features<-function(df,feature,file_location){
+  # create data frame for plotting
+  plt_dat<-df%>%select(c(`B1:SATISFACTION W/LIFE`,!!sym(feature)))
+  # round the feature and filter for values >=1 if there are more than 2 response options
+  # (some imputed features may have erronious values <1)
+  plt_dat[,feature]<-round(plt_dat[,..feature])
+  if(nrow(unique(data[,..feature]))>2){
+    plt_dat<-plt_dat%>%filter(!!sym(feature)>=1)}
+  # group data to prepare for graphing
+  plt_dat<-plt_dat%>%group_by(!!sym(feature),`B1:SATISFACTION W/LIFE`)%>%
+    summarise(count=n())%>%mutate(prcnt=100*count/sum(count))%>%ungroup
+  # create plot object
+  plt<-ggplot(plt_dat,aes(x = factor(`B1:SATISFACTION W/LIFE`),y=prcnt,fill=factor(`B1:SATISFACTION W/LIFE`)))+
+    geom_bar(stat="identity")+
+    ggtitle(paste0("Plot of 'SATISFACTION W/ LIFE (1=high)' \n by '",feature,"'"))+
+    ylab("Percent of Responses")+
+    xlab("")+
+    labs(fill="'SATISFACTION W/ LIFE (1=high)'")+
+    theme_bw()+
+    theme(panel.grid.major.x = element_blank())+
+    facet_grid(paste0(". ~ `",feature,"`"))
+  # save plot as png
+  ggsave(paste0(file_location,substr(sub(":.*", "",feature),1,4),"_plot.png"),plt,width=10,height=6)
+}
+# function to create heatmaps for important categorical features
+plt_heatmap<-function(df,feature,file_location){
+  # create data frame for plotting
+  plt_dat<-df%>%select(c(`B1:SATISFACTION W/LIFE`,!!sym(feature)))
+  # round the feature and filter for values >=1 (some imputed features may have erronious values <1)
+  plt_dat[,feature]<-round(plt_dat[,..feature])
+  if(nrow(unique(data[,..feature]))>2){
+    plt_dat<-plt_dat%>%filter(!!sym(feature)>=1)}
+  # group data to prepare for graphing
+  plt_dat<-plt_dat%>%group_by(!!sym(feature),`B1:SATISFACTION W/LIFE`)%>%
+    summarise(count=n())%>%ungroup
+  # create plot object
+  plt<-ggplot(plt_dat,aes(y = factor(`B1:SATISFACTION W/LIFE`),x=factor(!!sym(feature)),fill=count))+
+    geom_tile(color="black")+
+    ggtitle(paste0("Plot of 'SATISFACTION W/ LIFE (1=high)' \n by '",feature,"'"))+
+    xlab(feature)+
+    ylab('SATISFACTION W/ LIFE')+
+    labs(fill="Count of respondents")+
+    scale_fill_gradient(low="white",high="red")+
+    coord_fixed()
+  # save plot as png
+  ggsave(paste0(file_location,substr(sub(":.*", "",feature),1,4),"_heatmap.png"),plt)
+}
+
+plt_important_cont_features<-function(df,feature,file_location){
+  plt_dat<-df%>%select(c(`B1:SATISFACTION W/LIFE`,!!sym(feature)))
+  plt<-ggplot(plt_dat,aes(x= factor(`B1:SATISFACTION W/LIFE`),y=!!sym(feature),fill=factor(`B1:SATISFACTION W/LIFE`)))+
+    geom_boxplot()+
+    ggtitle(paste0("Plot of 'SATISFACTION W/ LIFE (1=high)' \n by '",feature,"'"))+
+    ylab(feature)+
+    xlab("'SATISFACTION W/ LIFE (1=high)'")+
+    labs(fill="'SATISFACTION W/ LIFE (1=high)'")+
+    theme_bw()
+  # save plot as png
+  ggsave(paste0(file_location,substr(sub(":.*", "",feature),1,4),"_plot.png"),plt,width=10,height=6)
+}
+
+# create and save plots
+for(f in imp.features){
+  # check if variable is categorical
+  if(nrow(unique(data[,..f]))<=15){
+    plt_important_cat_features(data,f,"rf plots/")
+    plt_heatmap(data,f,"rf plots/")}
+  else{
+    plt_important_cont_features(data,f,"rf plots/")
+    }
+}
+```
