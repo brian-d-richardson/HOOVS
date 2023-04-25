@@ -26,8 +26,11 @@ load_all()
 data <- fread('C:/Users/brian/Documents/Grad School/BIOS 735/HOOVS/processed_data.csv')
 
 #Create Key to make ordered factor and rename
-y_factor_key <- data.frame(original = sort(unique(data$`B1:SATISFACTION W/LIFE`)),
-                           y = factor(1:length(unique(data$`B1:SATISFACTION W/LIFE`)), ordered = T))
+#Reverse order to make interpretation easier
+y_factor_key <- data.frame(original = sort(unique(data$`B1:SATISFACTION W/LIFE`), decreasing = F),
+                           y = ordered(1:5))
+
+#factor(1:length(unique(data$`B1:SATISFACTION W/LIFE`)), ordered = T )
 
 #Merge and drop Case ID
 data_ordered_y <- merge(y_factor_key, data, by.x = "original", by.y = "B1:SATISFACTION W/LIFE") %>% 
@@ -62,7 +65,7 @@ fold_indicies <- createFolds(y = data_train$y, k=k)
 
 ```{r cv} 
 
-lambda_grid <- seq(0, 0.05, 0.005)
+lambda_grid <- seq(0.005, 0.05, 0.005)
 
 lambda_info <- list()
 
@@ -125,8 +128,8 @@ lambda_avg <- lambda_info_df %>%
 p1 <- ggplot(lambda_info_df, aes(x = n.nonzero, y = testing_kappa, group = fold)) +
   geom_point(aes(color = fold)) +
   geom_line(aes(color = fold)) +
-  labs(title = "No. of Nonzero Betas vs. Testing Kappa by Fold",
-       x = "No. of Nonzero Betas",
+  labs(title = "No. of Nonzero Parameters vs. Testing Kappa by Fold",
+       x = "No. of Nonzero Parameters",
        y = "Testing Kappa",
        color = "Fold")
 
@@ -134,8 +137,8 @@ p2 <- ggplot(data=lambda_avg, aes(x = avg_n.nonzero, y = avg_testing_kappa, labe
   geom_line() + 
   geom_point() +
   geom_label(alpha = 0, label.size = NA, nudge_y = 0.003, nudge_x = -5) +
-  labs(title = "Average No. of Nonzero Betas vs. Average Testing Kappa across Fold",
-       x = "Average No. of Nonzero Betas",
+  labs(title = "Average No. of Nonzero Parameters vs. Average Testing Kappa across Fold",
+       x = "Average No. of Nonzero Parameters",
        y = "Average Testing Kappa")
 
 print(p1)
@@ -159,6 +162,16 @@ toc()
 nonzero_beta <- colnames(data_train[2:199])[ordreg.vs$beta != 0 ]
 nonzero_beta
 
+predicted_heldout <- ordreg.predict(alpha = ordreg.vs$alpha[1,],
+                                    beta = ordreg.vs$beta[1,],
+                                    x = as.matrix(data_heldout[,-1]))
+
+kappa_heldout <- cohen.kappa(x = matrix(c(data_heldout[,1], predicted_heldout),
+                                             ncol = 2, 
+                                             byrow = F))$weighted.kappa
+
+print(paste0("Testing Kappa of the model in held out data is ", round(kappa_heldout, digits = 3)))
+
 ```
 
 
@@ -176,8 +189,6 @@ ordreg.final <- ordreg.lasso(
     return.cov = TRUE)
 toc()
 
-print(paste0("Kappa of the model in held out data is ", round(ordreg.final$kappa, digits = 3)))
-
 ```
 
 # Testing for significance
@@ -191,7 +202,7 @@ signif_tbl <- data.frame(Question = colnames(data_heldout_filter[-1]),
 signif_tbl <- signif_tbl %>%
   mutate(tvalue = Estimate / SE) %>%
   mutate(p = 2*pt(-abs(tvalue), 1434 - 43 - 1)) %>%
-  arrange(p)
+  arrange(-abs(Estimate))
 
 signif_tbl
 ```
