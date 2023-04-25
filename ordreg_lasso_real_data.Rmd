@@ -170,6 +170,17 @@ kappa_heldout <- cohen.kappa(x = matrix(c(data_heldout[,1], predicted_heldout),
                                              ncol = 2, 
                                              byrow = F))$weighted.kappa
 
+# creating and plotting a confusion matrix
+
+# save actual y and predicted y into a tibble
+y = data_heldout[,1]
+y.pred = predicted_heldout
+d_multi<-tibble("target"=y,"prediction"=y.pred)
+
+conf_mat<-confusion_matrix(targets = d_multi$target,
+                             predictions = d_multi$prediction)
+plot_confusion_matrix(conf_mat$`Confusion Matrix`[[1]],add_normalized=F)
+
 print(paste0("Testing Kappa of the model in held out data is ", round(kappa_heldout, digits = 3)))
 
 ```
