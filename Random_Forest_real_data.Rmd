@@ -115,6 +115,8 @@ d_multi<-tibble("target"=y,"prediction"=y.pred)
 conf_mat<-confusion_matrix(targets = d_multi$target,
                              predictions = d_multi$prediction)
 plot_confusion_matrix(conf_mat$`Confusion Matrix`[[1]],add_normalized=F)
+
+print(test_kappa)
 ```
 
 # Plotting selected important features for intuition
@@ -192,4 +194,17 @@ for(f in imp.features){
     plt_important_cont_features(data,f,"rf plots/")
     }
 }
+```
+```{r}
+features<-c(nonzero_beta,imp.features)
+sort(table(features))
+
+# find RF features which were not selected by the ordinal regression LASSO
+imp.features[which(!imp.features %in% nonzero_beta)]
+
+# find OR features which were not selected by the RF
+nonzero_beta[which(!nonzero_beta %in% imp.features)]
+
+# find features which were selected by both algorithms
+nonzero_beta[which(nonzero_beta %in% imp.features)]
 ```

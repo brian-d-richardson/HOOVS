@@ -1,6 +1,10 @@
 ---
 title: "BIOS 735 Final Presentation"
-output: html_document
+output: 
+  html_document:
+    number_sections: true
+    toc: true
+    toc_float: true
 author: "Ben Bodek, Brian Chen, Forrest Hurley, Brian Richardson, Emmanuel Rockwell"
 date: "04/28/22"
 ---
@@ -37,17 +41,11 @@ The dataset we will use for our project is from the Americans' Changing Lives (A
 
 ## Our Aims for the project
 
-The overarching goal of this project will be evaluating the association of the available demographic, sociographic, and psychographic variables with participants’ self reported life satisfaction. Specifically, we aim to identify factors which are predictive of high or low satisfaction with life. Because life satisfaction is an ordinal variable, with responses ranging from 1. Completely satisfied to 2. Not at all satisfied, our analysis methods must be designed to handle ordinal outcomes to avoid loss of information. Furthermore, the ACL survey is a high dimensional dataset. Therefore, in order to conduct the usual inference with a generalized linear model, we must first reduce this dimensionality.
+The overarching goal of this project will be evaluating the association of the available demographic, sociographic, and psychographic variables with participants’ self reported life satisfaction. Specifically, we aim to identify factors which are predictive of high or low satisfaction with life. Because life satisfaction is an ordinal variable, with responses ranging from 1. Completely satisfied to 2. Not at all satisfied, our analysis methods must be designed to handle ordinal outcomes to avoid loss of information. Furthermore, the ACL survey is a high dimensional data set. Therefore, in order to conduct the usual inference with a generalized linear model, we must first reduce this dimensionality.
 
-To achieve the goal of identifying factors associated with life satisfaction, we aim to reduce the dimentionality, with two methods: ordinal LASSO regression and Random Forests. 
+To achieve the goal of identifying factors associated with life satisfaction, we aim to reduce the data set dimensionality with two methods: ordinal LASSO regression and Random Forests. 
 
 # Methods
-
-## Data Cleaning and Preprocessing
-
-Although the dataset contains longitudinal data, our project will focus on a cross-sectional analysis of Wave I data. Moreover, we manually select for variables....
-
-Split data into training and test set.
 
 ## Ordinal Regression Model:
 
@@ -218,7 +216,7 @@ ggplot(NULL,
 ```
 
 
-We can now look at how the parameter estimates from our funciton change as the penalty parameter $\lambda$ changes
+We can now look at how the parameter estimates from our function change as the penalty parameter $\lambda$ changes
 
 ```{r , echo=FALSE}
 
@@ -241,53 +239,61 @@ Note in the above plot that the $\pmb{\alpha}$ estimates do not shrink all the w
 
 ## Real Data Analysis 
 
-```{r}
+Although the "Americans Changing Lives" study contains longitudinal data across 5 waves, we focus on a cross-sectional analysis of Wave I data. 
+
+We start by defining our outcome and covariates. Our outcome of interest is the participants' **Satisfaction with Life**, an ordinal survey response ranging from 1 = "Completely Satisfied" to 5 = "Not at all Satisfied".
+
+Below is the raw survey question presented to participants:
+
+```{r, echo=FALSE, out.width="50%"}
+knitr::include_graphics("final_presentation_src/survey_outcome.png")
+```
+
+As shown in the histogram below, a majority respondents identified that they are "Very Satisfied" with their lives.
+
+
+```{r,echo=FALSE}
 # Note that data must be downloaded and processed (instructions in data_processing.R)
 # prior to running this step
 
 # reading in processed data
 data <- fread('processed_data.csv')
-
-y_factor_key <- data.frame(scaled = sort(unique(data$`B1:SATISFACTION W/LIFE`)),
-                           y = factor(1:5, ordered = T))
-
-data_ordered_y <- merge(y_factor_key, data, by.x = "scaled", by.y = "B1:SATISFACTION W/LIFE") %>% 
-  arrange(`W1 Case Id`) %>%
-  select(-c("scaled", "W1 Case Id"))
+ggplot(data,aes(x=`B1:SATISFACTION W/LIFE`,fill=factor(`B1:SATISFACTION W/LIFE`)))+
+         geom_bar()+
+         theme_bw()+
+         labs(fill="'SATISFACTION W/ LIFE (1=high)'",y="Participant Count",title = "Histogram of Self-Reported Participant Satisfaction with Life")+
+         theme(panel.grid.major.x = element_blank(),panel.grid.major.y = element_blank())
 ```
 
-We start by defining our outcome and covariates. Our outcome of interest is the participants' **Satistfaction with Life**, an ordinal survey response ranging from 1 = "Completely Satisfied" to 5 = "Not at all Satisfied".
+### Data Cleaning and Preprocessing
 
-The covariates are defined as all other survey questions. 
+Our data processing pipeline contains 3 main steps:
 
-```{r}
-# set outcome as Life Satisfaction, "B1.SATISFACTION.W.LIFE"
-y<-data$`B1:SATISFACTION W/LIFE`
-# create covariate matrix
-x<-select(data, select = -c("B1:SATISFACTION W/LIFE"))
+```{r, echo=FALSE, out.width="75%"}
+knitr::include_graphics("final_presentation_src/data_processing_pipeline.png")
 ```
 
+1. 1029 available Wave I variables were manually filtered down to 200 initial variables of interest. Variables were selected to reduce data redundancy and eliminate variables which would be difficult for use in an ordinal regression model (e.g. categorical variables with >10 potential categories) .
 
-Below is a table of percentage of responses by ordinal category. We can see that most responses
-fall into category 2, "Very satisfied with life".
+2. Manual imputation was performed on data which was deemed "missing by design". Missing by design data is commonly found in survey studies, and refers to survey questions which are purposefully left blank as a results of a participant's answers to previous questions. For example, if a participant responds that they are not currently married, further questions about characteristics of the marriage would be skipped.
 
-```{r}
-l<-table(y)/sum(!is.na(y))*100
-barplot(l)
+
+```{r, echo=FALSE, out.width="75%"}
+knitr::include_graphics("final_presentation_src/missing_by_design.png")
 ```
-```{r}
-set.seed(5)
 
-#Create training and testing set
-train_test_i <- createDataPartition(y = data_ordered_y$y, p = 0.6, list = F)
+Our Ordinal Regression model cannot handle missing data, so it was necessary to impute missing by design data while preserving data integrity and allowing for meaningful interpretation. The imputation logic used was custom and varied across variables. For example, a variable measuring standardized (mean = 0) happiness in marriage was filled in with 0 for unmarried participants. Thus, any effect of this variable on our outcome can be interpreted as the effect of a deviation from the average happiness caused by a marriage.
 
-data_train <- data_ordered_y[train_test_i,]
-data_test <- data_ordered_y[-train_test_i,]
+3. After manual imputation, 120 columns remained with some level of missingness. The missingness in these columns was relatively low (<1.5%), and was assumed to be Missing at Random. K-nearest neighbors imputation was used to fill in missing values in the variables.
 
-#Within training set, create folds
-k <- 5 #set number of folds 
-fold_indicies <- createFolds(y = data_train$y, k=k)
+### Analysis Workflow
+
+```{r, echo=FALSE, out.width="75%"}
+knitr::include_graphics("final_presentation_src/analysis workflow.jpg")
 ```
+Our analysis had 3 main goals:
+
+1. 
 
 ### Ordinal Regression LASSO
 
