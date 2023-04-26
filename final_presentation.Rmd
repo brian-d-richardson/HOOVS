@@ -288,16 +288,26 @@ Our Ordinal Regression model cannot handle missing data, so it was necessary to 
 
 ### Analysis Workflow
 
-```{r, echo=FALSE, out.width="75%"}
+```{r, echo=FALSE, out.width="90%"}
 knitr::include_graphics("final_presentation_src/analysis workflow.jpg")
 ```
-Our analysis had 3 main goals:
 
-1. 
+There were three main goals for our analysis
+
+I. Use LASSO penalized ordinal regression and ordinal random forest models to reduce data set dimensionality.
+
+II. Compare results (selected features and model performance) between the LASSO penalized ordinal regression and ordinal random forest models
+
+III. Conduct inference on selected features using an unpenalized ordinal regression model to identify the magnitude and direction of covariate effects on life satisfaction.
+
+Inference cannot be conducted on the data set used for variable selection. Similarly, model evaluation should be performed on an independent data set from the one used for model training. Thus, we split our data into a training data set (60% of observations) and a Holdout data set (40% of observations). 
+
+Hyperparameter tuning and variable selection was conducted on the training data set. Tuned models were then trained on the training data set and evaluated on the holdout data set for model comparison. A final ordinal regression model (using selected variables and without penalization) was fit to the holdout data set for inference. 
 
 ### Ordinal Regression LASSO
 
 ### Random Forest
+
 
 
 # Conclusion
