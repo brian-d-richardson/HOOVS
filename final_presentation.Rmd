@@ -325,11 +325,40 @@ knitr::include_graphics("final_presentation_src/rf_confusion.png")
 
 Feature plots (heatmaps, barcharts, and boxplots) were created to heuristically investigate the relationship between selected features and life satisfaction. 
 
+#### Example feature plots
+
+Higher satisfaction with home (1=high) is associated with higher satisfaction with life.
+
+```{r, echo=FALSE, out.width="90%"}
+knitr::include_graphics("rf plots/B7_heatmap.png")
+```
+
+Higher levels of depression symptoms (CESD) is associated with lower satisfaction with life.
+
+```{r, echo=FALSE, out.width="90%"}
+knitr::include_graphics("rf plots/CESD_plot.png")
+```
+
+Lower financial stress is associated with higher satisfaction with life.
+
+```{r, echo=FALSE, out.width="90%"}
+knitr::include_graphics("rf plots/FINA_plot.png")
+```
+
+Feeling misunderstood is associated with lower satisfaction with life.
+
+```{r, echo=FALSE, out.width="90%"}
+knitr::include_graphics("rf plots/NOT _plot.png")
+```
+
 ### Model Comparison
 
 ```{r, echo=FALSE, out.width="100%"}
 knitr::include_graphics("final_presentation_src/model comparison.png")
 ```
+Both models had similar performance on the hold out dataset (evaluated using Weighted Kappa as a measure of agreement between predicted and actual ordinal response), and selected a similar number of features. Feature selection with the LASSO Ordinal Regression model took significantly less time, likely due to the bootstrapping and permutations used for the random forest feature selection algorithm.
+
+20 features were selected by both models, indicating high levels of agreement between the feature selection algorithms. 
 
 # Discussion
 
