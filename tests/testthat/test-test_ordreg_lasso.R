@@ -30,4 +30,26 @@ test_that("beta dimension correct", {
   expect_equal(dim(res.ordreg$beta), c(length(lambdas), p))
 })
 
+test_that("non-zero covariates dimension correct", {
+  expect_equal(length(res.ordreg$n.nonzero), length(lambdas))
+})
+
+test_that("log-likelihood dimension correct", {
+  expect_equal(length(res.ordreg$loglik.val), length(lambdas))
+})
+
+test_that("kappa dimension correct", {
+  expect_equal(length(res.ordreg$kappa), length(lambdas))
+})
+
+test_that("BIC dimension correct", {
+  expect_equal(length(res.ordreg$bic), length(lambdas))
+})
+
+test_that("predictions dimension correct", {
+  expect_equal(dim(res.ordreg$predictions), c(length(lambdas), n))
+})
+
+
+
 
