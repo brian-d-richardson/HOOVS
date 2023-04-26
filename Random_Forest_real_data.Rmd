@@ -96,6 +96,7 @@ model<-ordinalForest::ordfor("y", data_train[,c("y",imp.features)])
 ```
 
 # Evaluate model using test set
+
 ```{r}
 # save predictions on test set
 predicted <- predict(model,data_test[,-1])
@@ -122,7 +123,7 @@ print(test_kappa)
 # Plotting selected important features for intuition
 
 ```{r message=FALSE}
-# function to create plots for important categorical features
+## function to create plots for important categorical features
 plt_important_cat_features<-function(df,feature,file_location){
   # create data frame for plotting
   plt_dat<-df%>%select(c(`B1:SATISFACTION W/LIFE`,!!sym(feature)))
@@ -147,7 +148,9 @@ plt_important_cat_features<-function(df,feature,file_location){
   # save plot as png
   ggsave(paste0(file_location,substr(sub(":.*", "",feature),1,4),"_plot.png"),plt,width=10,height=6)
 }
-# function to create heatmaps for important categorical features
+
+
+## function to create heatmaps for important categorical features
 plt_heatmap<-function(df,feature,file_location){
   # create data frame for plotting
   plt_dat<-df%>%select(c(`B1:SATISFACTION W/LIFE`,!!sym(feature)))
@@ -171,6 +174,8 @@ plt_heatmap<-function(df,feature,file_location){
   ggsave(paste0(file_location,substr(sub(":.*", "",feature),1,4),"_heatmap.png"),plt)
 }
 
+
+## function to create boxplot figures for continuous features 
 plt_important_cont_features<-function(df,feature,file_location){
   plt_dat<-df%>%select(c(`B1:SATISFACTION W/LIFE`,!!sym(feature)))
   plt<-ggplot(plt_dat,aes(x= factor(`B1:SATISFACTION W/LIFE`),y=!!sym(feature),fill=factor(`B1:SATISFACTION W/LIFE`)))+
@@ -184,18 +189,25 @@ plt_important_cont_features<-function(df,feature,file_location){
   ggsave(paste0(file_location,substr(sub(":.*", "",feature),1,4),"_plot.png"),plt,width=10,height=6)
 }
 
+
 # create and save plots
 for(f in imp.features){
   # check if variable is categorical
+  # if so, create bar and heatmap plots
   if(nrow(unique(data[,..f]))<=15){
     plt_important_cat_features(data,f,"rf plots/")
     plt_heatmap(data,f,"rf plots/")}
+  # if variable is considerend continuous, create boxplots
   else{
     plt_important_cont_features(data,f,"rf plots/")
     }
 }
 ```
+
+# Comparing selected features to LASSO Ordinal Regression
+
 ```{r}
+# note: ordreg_lasso_real_data.Rmd code must be run before this step to create the nonzero_beta variable
 features<-c(nonzero_beta,imp.features)
 sort(table(features))
 
