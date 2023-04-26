@@ -1,5 +1,5 @@
 ---
-title: "BIOS 735 Final Presentation"
+title: "BIOS 735 Final Report"
 output: 
   html_document:
     number_sections: true
@@ -245,7 +245,7 @@ We start by defining our outcome and covariates. Our outcome of interest is the 
 
 Below is the raw survey question presented to participants:
 
-```{r, echo=FALSE, out.width="50%"}
+```{r, echo=FALSE, out.width="75%"}
 knitr::include_graphics("final_presentation_src/survey_outcome.png")
 ```
 
@@ -269,7 +269,7 @@ ggplot(data,aes(x=`B1:SATISFACTION W/LIFE`,fill=factor(`B1:SATISFACTION W/LIFE`)
 
 Our data processing pipeline contains 3 main steps:
 
-```{r, echo=FALSE, out.width="75%"}
+```{r, echo=FALSE, out.width="90%"}
 knitr::include_graphics("final_presentation_src/data_processing_pipeline.png")
 ```
 
@@ -278,13 +278,16 @@ knitr::include_graphics("final_presentation_src/data_processing_pipeline.png")
 2. Manual imputation was performed on data which was deemed "missing by design". Missing by design data is commonly found in survey studies, and refers to survey questions which are purposefully left blank as a results of a participant's answers to previous questions. For example, if a participant responds that they are not currently married, further questions about characteristics of the marriage would be skipped.
 
 
-```{r, echo=FALSE, out.width="75%"}
+```{r, echo=FALSE, out.width="90%"}
 knitr::include_graphics("final_presentation_src/missing_by_design.png")
 ```
 
 Our Ordinal Regression model cannot handle missing data, so it was necessary to impute missing by design data while preserving data integrity and allowing for meaningful interpretation. The imputation logic used was custom and varied across variables. For example, a variable measuring standardized (mean = 0) happiness in marriage was filled in with 0 for unmarried participants. Thus, any effect of this variable on our outcome can be interpreted as the effect of a deviation from the average happiness caused by a marriage.
 
 3. After manual imputation, 120 columns remained with some level of missingness. The missingness in these columns was relatively low (<1.5%), and was assumed to be Missing at Random. K-nearest neighbors imputation was used to fill in missing values in the variables.
+
+Future iterations of this analysis could include sensitivity analysis on the imputation methods used. The MAR assumption and treatment of missing by design data may have large effects on variable selection and analysis results. 
+
 
 ### Analysis Workflow
 
@@ -294,11 +297,11 @@ knitr::include_graphics("final_presentation_src/analysis workflow.jpg")
 
 There were three main goals for our analysis
 
-I. Use LASSO penalized ordinal regression and ordinal random forest models to reduce data set dimensionality.
+1. Use LASSO penalized ordinal regression and ordinal random forest models to reduce data set dimensionality.
 
-II. Compare results (selected features and model performance) between the LASSO penalized ordinal regression and ordinal random forest models
+2. Compare results (selected features and model performance) between the LASSO penalized ordinal regression and ordinal random forest models
 
-III. Conduct inference on selected features using an unpenalized ordinal regression model to identify the magnitude and direction of covariate effects on life satisfaction.
+3. Conduct inference on selected features using an unpenalized ordinal regression model to identify the magnitude and direction of covariate effects on life satisfaction.
 
 Inference cannot be conducted on the data set used for variable selection. Similarly, model evaluation should be performed on an independent data set from the one used for model training. Thus, we split our data into a training data set (60% of observations) and a Holdout data set (40% of observations). 
 
@@ -308,7 +311,25 @@ Hyperparameter tuning and variable selection was conducted on the training data 
 
 ### Random Forest
 
+*Note: See "Random_Forest_real_data.Rmd" for the code used to conduct the analysis described in this section.*
 
+Ordinal Random Forest feature selection was performed using the HOOVS package on our training dataset. 36 features were selected by the model. 
 
-# Conclusion
+A final ordinal random forest model was trained on the training data set using the 36 selected features, and evaluated on the holdout data set. 
+
+As shown in the following confusion matrix, there is high agreement between the predicted and actual ordinal response. Incorrect predictions tend to cluster around the truth (e.g. true values of 1 are most often predicted to be 1 or 2).
+
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("final_presentation_src/rf_confusion.png")
+```
+
+Feature plots (heatmaps, barcharts, and boxplots) were created to heuristically investigate the relationship between selected features and life satisfaction. 
+
+### Model Comparison
+
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("final_presentation_src/model comparison.png")
+```
+
+# Discussion
 
