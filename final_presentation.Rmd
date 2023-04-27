@@ -114,7 +114,7 @@ p <- 50
 J <- 4
 
 # grid of lambdas
-lambdas <- seq(0, 0.2, 0.02)
+lambdas <- seq(0.2, 0, -0.02)
 
 # set population parameters
 alpha <- seq(.5, 4, length = J - 1) # category-specific intercepts
