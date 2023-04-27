@@ -24,7 +24,6 @@ suppressPackageStartupMessages(if (!require(caret)){install.packages("caret")})
 suppressPackageStartupMessages(if (!require(Boruta)){install.packages("Boruta")})
 suppressPackageStartupMessages(if (!require(ordinalForest)){install.packages("ordinalForest")})
 suppressPackageStartupMessages(if (!require(cvms)){install.packages("cvms")})
-suppressPackageStartupMessages(if (!require(ggplot2)){install.packages("ggplot2")})
 suppressPackageStartupMessages(if (!require(data.table)){install.packages("data.table")})
 suppressPackageStartupMessages(if (!require(rlang)){install.packages("rlang")})
 load_all()
@@ -33,21 +32,21 @@ load_all()
 set.seed(1)
 ```
 
-# Introduction
+# 1 Introduction
 
-## Data Description
+## 1.1 Data Description
 
 The dataset we will use for our project is from the Americans' Changing Lives (ACL) longitudinal survey that tracks sociological, psychological, mental, and physical health items. The study has a primary focus focus in differences between Black and White Americans. The first wave of surveys was conducted in 1986 and included 3,617 adults ages 25 and up, with Black Americans and people aged 60 and over over-sampled at twice the rate of the others. The survivors at each measurement were re-interviewed in 1989, 1994, 2002, and 2011, called Waves II, III, IV, and V, respectively. 
 
-## Our Aims for the project
+## 1.2 Our Aims for the project
 
 The overarching goal of this project will be evaluating the association of the available demographic, sociographic, and psychographic variables with participants’ self reported life satisfaction. Specifically, we aim to identify factors which are predictive of high or low satisfaction with life. Because life satisfaction is an ordinal variable, with responses ranging from 1. Completely satisfied to 2. Not at all satisfied, our analysis methods must be designed to handle ordinal outcomes to avoid loss of information. Furthermore, the ACL survey is a high dimensional data set. Therefore, in order to conduct the usual inference with a generalized linear model, we must first reduce this dimensionality.
 
 To achieve the goal of identifying factors associated with life satisfaction, we aim to reduce the data set dimensionality with two methods: ordinal LASSO regression and Random Forests. 
 
-# Methods
+# 2 Methods
 
-## Ordinal Regression Model:
+## 2.1 Ordinal Regression Model:
 
 Suppose that, for observation $i = 1, \dots, n$, the ordinal outcome $Y_i$ given the covariate vector $\pmb{x}_i$ has a multinomial distribution with $J$ outcome categories and probabilities of success $\pi_1(\pmb{x}_i), \dots, \pi_J(\pmb{x}_i)$. That is,
 
@@ -61,7 +60,7 @@ $$ \text{logit}\{ P(Y_i \leq j | \pmb{x}_i) \} = \alpha_j + \pmb{x}_i^T \pmb{\be
 
 In this model, $\alpha_1, \dots, \alpha_{J-1}$ are outcome category-specific intercepts for the first $J-1$ ordinal outcome categories and $\beta_1, \dots, \beta_p$ are the slopes corresponding to the $p$ covariates. Since the cumulative probabilities must be nondecreasing in $j$, i.e., is $P(Y_i \leq j | \pmb{x}_i) < P(Y_i \leq j+1 | \pmb{x}_i)$, we require that $\alpha_1 < \dots < \alpha_{J-1}$.
 
-### Estimation
+### 2.1.1 Estimation
 
 The likelihood function for the ordinal regression model is
 
@@ -73,7 +72,7 @@ The LASSO-penalized ordinal regression model is fit by minimizing the following 
 
 $$ f(\pmb{\alpha}, \pmb{\beta}) = -l(\pmb{\alpha}, \pmb{\beta}) + \lambda\sum_{j=1}^p|\beta_j|. $$
 
-### Proximal Gradient Descent Algorithm
+### 2.1.2 Proximal Gradient Descent Algorithm
 
 The objective function can be minimized using a proximal gradient descent (PGD) algorithm.
 
@@ -95,12 +94,12 @@ Continue updating $\pmb{\theta}^{(k)}$ until convergence, i.e., until $\left|\fr
 
 A technical note is that the $\pmb{\alpha}$ parameters are constrained by $\alpha_1 < \dots < \alpha_{J-1}$. We can reparametrize the model with $\pmb{\zeta} = (\zeta_1, \dots, \zeta_{J-1})^T$, where $\zeta_1 = \alpha_1$ and $\zeta_j = \log(\alpha_j - \alpha_{j-1})$ for $j = 2, \dots, J-1$. Then $\pmb{\zeta} \in \mathbb{R}^{J-1}$ have no constraints. So we can follow the above procedure to minimize the above objective function with respect to $\pmb{\zeta}$ and $\pmb{\beta}$, then back-transform to obtain estimates for $\pmb{\alpha}$.
 
-## Random Forest
+## 2.2 Random Forest
 
 
-# Results
+# 3 Results
 
-## Simulation Study
+## 3.1 Simulation Study
 
 ```{r, echo=FALSE}
 
@@ -138,7 +137,7 @@ dat[1:10, 1:10] %>%
             .funs = function(x) round(x, digits = 2))
 ```
 
-### Run ordinal Regression
+### 3.1.1 Run ordinal Regression
 
 Now run our version of a LASSO-penalized ordinal regression function on the simulated data for various values of $\lambda$: `r lambdas`.
 
@@ -155,7 +154,7 @@ toc()
 
 ```
 
-### Comparison to existing method
+### 3.1.2 Comparison to existing method
 
 We can compare our model with an existing function `ordinalNet::ordinalNet()` and fit the same models with the same $\lambda$ values.
 
@@ -237,7 +236,7 @@ ggplot(data = filter(coef.long, method == "ordreg"),
 Note in the above plot that the $\pmb{\alpha}$ estimates do not shrink all the way to 0 since they are not penalized in the LASSO model. On the other hand, the $\pmb{\beta}$ estimates do shrink to 0 as $\lambda$ increases. Recall that the data were simulated according to a model where half of the $\pmb{\beta}$ values are truly 0 and the other half are truly 1. It is clear in the above plot which covariates are truly not associated with the outcome based on how fast their corresponding parameter estimates shrink to 0.
 
 
-## Real Data Analysis 
+## 3.2 Real Data Analysis 
 
 Although the "Americans Changing Lives" study contains longitudinal data across 5 waves, we focus on a cross-sectional analysis of Wave I data. 
 
@@ -265,7 +264,7 @@ ggplot(data,aes(x=`B1:SATISFACTION W/LIFE`,fill=factor(`B1:SATISFACTION W/LIFE`)
          theme(panel.grid.major.x = element_blank(),panel.grid.major.y = element_blank())
 ```
 
-### Data Cleaning and Preprocessing
+### 3.2.1 Data Cleaning and Preprocessing
 
 Our data processing pipeline contains 3 main steps:
 
@@ -289,7 +288,7 @@ Our Ordinal Regression model cannot handle missing data, so it was necessary to 
 Future iterations of this analysis could include sensitivity analysis on the imputation methods used. The MAR assumption and treatment of missing by design data may have large effects on variable selection and analysis results. 
 
 
-### Analysis Workflow
+### 3.2.2 Analysis Workflow
 
 ```{r, echo=FALSE, out.width="90%"}
 knitr::include_graphics("final_presentation_src/analysis workflow.jpg")
@@ -307,9 +306,37 @@ Inference cannot be conducted on the data set used for variable selection. Simil
 
 Hyperparameter tuning and variable selection was conducted on the training data set. Tuned models were then trained on the training data set and evaluated on the holdout data set for model comparison. A final ordinal regression model (using selected variables and without penalization) was fit to the holdout data set for inference. 
 
-### Ordinal Regression LASSO
+### 3.2.3 Ordinal Regression LASSO
 
-### Random Forest
+*Note: See "ordreg_lasso_real_data.Rmd" for the code used to conduct the analysis described in this section.*
+
+To find the best lambda as our tuning parameter, we perform a 5-fold cross validation within our training data using weighted kappa as our evaluation metric. Although we want to maximize our kappa value to have the most accurate model, our goal is to reduce the dimensionality of the dataset for model fitting inference. Thus, we heuristically select our lambda to fit both of these aims. The graphs below plot the number of non-zero parameters versus our testing kappa value within the cross validation. 
+
+```{r Ordreg_cv_plot, echo=FALSE}
+load("ordreg_lasso_real_data.Rdata")
+
+print(p2)
+print(p1)
+
+```
+
+We select $\lambda=0.02$ to be our final $\lambda$ value to balance reducing dimensionality by keeping the number of nonzero parameters below 50. Although $\lambda=0.005$ had the best average testing kappa value, the difference of the average testing kappa value between $\lambda=0.02$ and $\lambda=0.005$ was about 0.02. 
+
+We then fit an ordinal regression LASSO with $\lambda=0.02$ on all of the training data. This resulted in 39 nonzero betas with a testing kappa of 0.497 when predicting on the held-out dataset. 
+Finally, we fit an ordinal regression with no penalty on the held-out dataset filtered to the 39 nonzero covariates. We then conduct inference on the beta values using a t-test with 1390 degrees of freedom. This resulting in all of the covariates being significant except 2. Some of the covariates with the highest effect sizes are
+
+1.	Satisfaction with financial situation: being more satisfied with financial situation corresponded to being more satisfied with life.
+
+2.	Satisfaction with home: being more satisfied with one’s home corresponded to being more satisfied with life.
+
+3.	Could not get it “going”: The less someone could not get it “going” corresponded to being more satisfied with life.
+
+4.	Ultimate Justice without Reference to Afterlife, Mean: an average of other responses that implied being more sacrificial for the future corresponded with less satisfaction with life.
+
+5.	Marital harmony, Mean: an average of other responses that implied being more harmonious with one’s marriage corresponded to being more satisfied with life.
+
+
+### 3.2.4 Random Forest
 
 *Note: See "Random_Forest_real_data.Rmd" for the code used to conduct the analysis described in this section.*
 
@@ -351,7 +378,7 @@ Feeling misunderstood is associated with lower satisfaction with life.
 knitr::include_graphics("rf plots/NOT _plot.png")
 ```
 
-### Model Comparison
+### 3.2.5 Model Comparison
 
 ```{r, echo=FALSE, out.width="100%"}
 knitr::include_graphics("final_presentation_src/model comparison.png")
@@ -360,5 +387,5 @@ Both models had similar performance on the hold out dataset (evaluated using Wei
 
 20 features were selected by both models, indicating high levels of agreement between the feature selection algorithms. 
 
-# Discussion
+# 4 Discussion
 
