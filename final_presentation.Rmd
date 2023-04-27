@@ -71,7 +71,7 @@ Let $l(\pmb{\alpha}, \pmb{\beta}) = \frac{-1}{n} \log L(\pmb{\alpha}, \pmb{\beta
 
 The LASSO-penalized ordinal regression model is fit by minimizing the following objective function with respect to $\pmb{\alpha}$ and $\pmb{\beta}$.
 
-$$ f(\pmb{\alpha}, \pmb{\beta}) = l(\pmb{\alpha}, \pmb{\beta}) + \lambda\sum_{j=1}^p|\beta_j|. $$
+$$ f(\pmb{\alpha}, \pmb{\beta}) = -l(\pmb{\alpha}, \pmb{\beta}) + \lambda\sum_{j=1}^p|\beta_j|. $$
 
 ### Proximal Gradient Descent Algorithm
 
