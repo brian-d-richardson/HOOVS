@@ -389,3 +389,26 @@ Both models had similar performance on the hold out dataset (evaluated using Wei
 
 # 4 Discussion
 
+## 4.1 Results
+
+Both models indicate strong relationships (at least a self-reported relationship) between factors such as home satisfaction, levels of depression, financial stress, and feelings of being misunderstood (among others) with life satisfaction at the population level. While these conclusions may seem straightforward, it is important as statisticians to formalize factors which have a strong empirical association with life satisfaction.
+
+Furthermore, another interesting result is the fact that the kappa values for both the ordinal regression and random forest were similar. However, because the ordinal regression takes much less time to fit and had straightforward interpretations for each covariate, the ordinal regression is preferable in this instance. 
+
+## 4.2 Limitations and Future Steps
+
+There are some limitations to this analysis. First off, our model used proportional odds to assign ordinal outcomes. However, proportional odds are just one of many likelihood methods that could have bee used to model associations between ordinal outcomes. While easy to interpret, proportional odds can be a strong assumption warranting the use of other likelihood methods. Other potential methods include partial proportional odds, generalized ordered logit, Bayesian ordinal regression, and continuation ratio models. These choices of likelihood methods – while potentially more complicated – may be preferable if they more closely align with underlying data generating process.
+
+Another limitation in this analysis was the need for extensive data preprocessing of the covariates. Many variables in the survey were coded such that some variables were more detailed answers that applied to only a subset of the population. As a result, we could not perform variables selection on the entire dataset -- rather a large subset of the data for which data preprocessing was manually feasible. 
+
+One of the more meaningful limitations to the interpretation of our findings was the self-reported nature of survey data. Because nearly every variable in this dataset is self-reported, answers may not be reliable as those reported through more empirical means. Additionally, the Likert scales used in the survey may have subjective differences in interpretation across individuals. We chose to interpret covariates as continuous for the sake of creating a parsimonious model. However, coding the covariates as categorical variables and including interactions may reveal more complex trends in the data. Conversely, we interpreted the outcome to be an ordered categorical variable. However, interpreting the ourcome as a linear response – while a stronger assumption – provides more flexibility in terms of methods and modeling techniques.
+
+The contents of this survey are very novel and interesting. However, future data collection pursuits which espouse more empirical data collection processes will help tease out any potential measurement error in self-reported outcomes and serve as a nice complement to this analysis. We believe that this work will have the strongest impact when used in cross-disciplinary studies pairing these results with studies in developmental psychology or public policy. 
+
+
+
+
+
+
+
+
