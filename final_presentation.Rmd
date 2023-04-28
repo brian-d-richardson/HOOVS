@@ -312,12 +312,12 @@ Hyperparameter tuning and variable selection was conducted on the training data 
 
 To find the best lambda as our tuning parameter, we perform a 5-fold cross validation within our training data using weighted kappa as our evaluation metric. Although we want to maximize our kappa value to have the most accurate model, our goal is to reduce the dimensionality of the dataset for model fitting inference. Thus, we heuristically select our lambda to fit both of these aims. The graphs below plot the number of non-zero parameters versus our testing kappa value within the cross validation. 
 
-```{r Ordreg_cv_plot, echo=FALSE}
-load("ordreg_lasso_real_data.Rdata")
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("final_presentation_src/avg_cv_kappa.png")
+```
 
-print(p2)
-print(p1)
-
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("final_presentation_src/cv_kappa_by_fold.png")
 ```
 
 We select $\lambda=0.02$ to be our final $\lambda$ value to balance reducing dimensionality by keeping the number of nonzero parameters below 50. Although $\lambda=0.005$ had the best average testing kappa value, the difference of the average testing kappa value between $\lambda=0.02$ and $\lambda=0.005$ was about 0.02. 
@@ -325,15 +325,15 @@ We select $\lambda=0.02$ to be our final $\lambda$ value to balance reducing dim
 We then fit an ordinal regression LASSO with $\lambda=0.02$ on all of the training data. This resulted in 39 nonzero betas with a testing kappa of 0.497 when predicting on the held-out dataset. 
 Finally, we fit an ordinal regression with no penalty on the held-out dataset filtered to the 39 nonzero covariates. We then conduct inference on the beta values using a t-test with 1390 degrees of freedom. This resulting in all of the covariates being significant except 2. Some of the covariates with the highest effect sizes are
 
-1.	Satisfaction with financial situation: being more satisfied with financial situation corresponded to being more satisfied with life.
+1. Satisfaction with financial situation: being more satisfied with financial situation corresponded to being more satisfied with life.
 
-2.	Satisfaction with home: being more satisfied with one’s home corresponded to being more satisfied with life.
+2. Satisfaction with home: being more satisfied with one’s home corresponded to being more satisfied with life.
 
-3.	Could not get it “going”: The less someone could not get it “going” corresponded to being more satisfied with life.
+3. Could not get it “going”: The less someone could not get it “going” corresponded to being more satisfied with life.
 
-4.	Ultimate Justice without Reference to Afterlife, Mean: an average of other responses that implied being more sacrificial for the future corresponded with less satisfaction with life.
+4. Ultimate Justice without Reference to Afterlife, Mean: an average of other responses that implied being more sacrificial for the future corresponded with less satisfaction with life.
 
-5.	Marital harmony, Mean: an average of other responses that implied being more harmonious with one’s marriage corresponded to being more satisfied with life.
+5. Marital harmony, Mean: an average of other responses that implied being more harmonious with one’s marriage corresponded to being more satisfied with life.
 
 
 ### 3.2.4 Random Forest
