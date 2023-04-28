@@ -323,7 +323,7 @@ knitr::include_graphics("final_presentation_src/cv_kappa_by_fold.png")
 We select $\lambda=0.02$ to be our final $\lambda$ value to balance reducing dimensionality by keeping the number of nonzero parameters below 50. Although $\lambda=0.005$ had the best average testing kappa value, the difference of the average testing kappa value between $\lambda=0.02$ and $\lambda=0.005$ was about 0.02. 
 
 We then fit an ordinal regression LASSO with $\lambda=0.02$ on all of the training data. This resulted in 39 nonzero betas with a testing kappa of 0.497 when predicting on the held-out dataset. 
-Finally, we fit an ordinal regression with no penalty on the held-out dataset filtered to the 39 nonzero covariates. We then conduct inference on the beta values using a t-test with 1390 degrees of freedom. This resulting in all of the covariates being significant except 2. Some of the covariates with the highest effect sizes are
+Finally, we fit an ordinal regression with no penalty on the held-out dataset filtered to the 39 nonzero covariates. We then conduct inference on the beta values using a t-test with 1390 degrees of freedom. This resulting in 12 being significant. Some of most significant covariates are
 
 1. Satisfaction with financial situation: being more satisfied with financial situation corresponded to being more satisfied with life.
 
@@ -331,7 +331,7 @@ Finally, we fit an ordinal regression with no penalty on the held-out dataset fi
 
 3. Could not get it “going”: The less someone could not get it “going” corresponded to being more satisfied with life.
 
-4. Ultimate Justice without Reference to Afterlife, Mean: an average of other responses that implied being more sacrificial for the future corresponded with less satisfaction with life.
+4. Spouse in household: Not having a spouse in the household led to being more satisfied in life.
 
 5. Marital harmony, Mean: an average of other responses that implied being more harmonious with one’s marriage corresponded to being more satisfied with life.
 
