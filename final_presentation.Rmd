@@ -406,7 +406,7 @@ knitr::include_graphics("rf plots/NOT _plot.png")
 
 ### Model Comparison
 
-```{r, eval=FALSE, echo=FALSE, out.width="100%"}
+```{r, echo=FALSE, out.width="100%"}
 knitr::include_graphics("final_presentation_src/model comparison.png")
 ```
 Both models had similar performance on the hold out dataset (evaluated using Weighted Kappa as a measure of agreement between predicted and actual ordinal response), and selected a similar number of features. Feature selection with the LASSO Ordinal Regression model took significantly less time, likely due to the bootstrapping and permutations used for the random forest feature selection algorithm.
