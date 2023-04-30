@@ -48,6 +48,9 @@ load_all()
 set.seed(1)
 
 ```
+
+To build the final report document render `final_presentation.Rmd`.
+
 # Method 1: LASSO-Penalized Ordinal Regression Model
 
 We begin with a theoretical introduction of the ordinal regression model and how the `HOOVS` package calculates parameter estimates.

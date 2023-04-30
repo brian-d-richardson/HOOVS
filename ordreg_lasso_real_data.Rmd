@@ -8,7 +8,6 @@ date: "`r format(Sys.time(), '%m/%d/%Y')`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-setwd("C:/Users/brian/Documents/Grad School/BIOS 735/HOOVS/")
 library(data.table)
 library(devtools)
 library(caret)
@@ -24,7 +23,7 @@ load_all()
 
 ```{r read_scale}
 #Read in Data
-data <- fread('C:/Users/brian/Documents/Grad School/BIOS 735/HOOVS/processed_data.csv')
+data <- fread('processed_data.csv')
 
 #Create Key to make ordered factor and rename
 #Reverse order to make interpretation easier
@@ -222,6 +221,6 @@ signif_tbl
 
 ```{r export, include =FALSE}
 #Export workspace so we don't have to rerun analysis for report 
-save.image("C:/Users/brian/Documents/Grad School/BIOS 735/HOOVS/ordreg_lasso_real_data.RData")
+#save.image("C:/Users/brian/Documents/Grad School/BIOS 735/HOOVS/ordreg_lasso_real_data.RData")
 
 ```
